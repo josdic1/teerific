@@ -12,6 +12,7 @@
   },
   "scripts": {
     "build": "npm run build --workspace @teerific/shared && npm run build --workspace @teerific/backend && npm run build --workspace frontend",
-    "typecheck": "npm run typecheck --workspace @teerific/shared && npm run typecheck --workspace @teerific/backend && npm run typecheck --workspace frontend"
+    "typecheck": "npm run typecheck --workspace @teerific/shared && npm run typecheck --workspace @teerific/backend && npm run typecheck --workspace frontend",
+    "clean": "rm -rf backend/dist frontend/dist shared/dist"
   }
 }
