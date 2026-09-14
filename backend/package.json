@@ -8,13 +8,16 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "node dist/server.js",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "sessions:cleanup": "tsx src/scripts/cleanupSessions.ts"
   },
   "dependencies": {
     "@teerific/shared": "^0.0.0",
+    "cookie": "^2.0.1",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
     "pg": "^8.23.0",
     "zod": "^4.6.5"
   },

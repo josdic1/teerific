@@ -1,11 +1,16 @@
 import cors from "cors";
 import express from "express";
+import { apiRouter } from "./routes/index.js";
+import { csrfProtection } from "./middleware/csrf.js";
 
 export const app = express();
 
-app.use(cors());
-app.use(express.json());
+app.use(cors({
+  origin: process.env.FRONTEND_ORIGIN ?? "http://localhost:5173",
+  credentials: true
+}));
 
-app.get("/api/health", (_request, response) => {
-  response.status(200).json({ status: "ok" });
-});
+app.use(express.json());
+app.use(csrfProtection);
+
+app.use("/api", apiRouter);

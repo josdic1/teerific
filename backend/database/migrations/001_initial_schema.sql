@@ -2,50 +2,85 @@ BEGIN;
 
 CREATE TABLE users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  email TEXT NOT NULL,
-  display_name TEXT NOT NULL,
+
+  phone_number TEXT NOT NULL UNIQUE,
+  phone_verified_at TIMESTAMPTZ NOT NULL,
+
+  display_name TEXT,
+
+  is_admin BOOLEAN NOT NULL DEFAULT false,
+
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-  CONSTRAINT users_email_lowercase
-    CHECK (email = lower(email)),
-
-  CONSTRAINT users_email_not_blank
-    CHECK (length(trim(email)) > 0),
+  CONSTRAINT users_phone_e164
+    CHECK (phone_number ~ '^\+[1-9][0-9]{7,14}$'),
 
   CONSTRAINT users_display_name_not_blank
-    CHECK (length(trim(display_name)) > 0)
+    CHECK (
+      display_name IS NULL
+      OR length(trim(display_name)) > 0
+    ),
+
+  CONSTRAINT users_phone_verified_after_creation
+    CHECK (phone_verified_at >= created_at)
 );
 
-CREATE UNIQUE INDEX users_email_unique
-  ON users (lower(email));
+
+CREATE FUNCTION prevent_admin_user_delete()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF OLD.is_admin THEN
+    RAISE EXCEPTION
+      'Admin user cannot be deleted'
+      USING ERRCODE = '23514';
+  END IF;
+
+  RETURN OLD;
+END;
+$$;
+
+CREATE TRIGGER users_prevent_admin_delete
+BEFORE DELETE ON users
+FOR EACH ROW
+EXECUTE FUNCTION prevent_admin_user_delete();
 
 
-CREATE TABLE auth_accounts (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL
-    REFERENCES users(id)
-    ON DELETE CASCADE,
+CREATE TABLE phone_pin_challenges (
+  id UUID PRIMARY KEY,
 
-  provider TEXT NOT NULL,
-  provider_subject TEXT NOT NULL,
-  password_hash TEXT,
+  phone_number TEXT NOT NULL,
+  code_hash TEXT NOT NULL,
+
+  attempts_remaining INTEGER NOT NULL DEFAULT 5,
+  expires_at TIMESTAMPTZ NOT NULL,
+  consumed_at TIMESTAMPTZ,
 
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-  CONSTRAINT auth_accounts_provider_not_blank
-    CHECK (length(trim(provider)) > 0),
+  CONSTRAINT phone_pin_challenges_phone_e164
+    CHECK (phone_number ~ '^\+[1-9][0-9]{7,14}$'),
 
-  CONSTRAINT auth_accounts_subject_not_blank
-    CHECK (length(trim(provider_subject)) > 0),
+  CONSTRAINT phone_pin_challenges_hash_not_blank
+    CHECK (length(trim(code_hash)) > 0),
 
-  CONSTRAINT auth_accounts_provider_subject_unique
-    UNIQUE (provider, provider_subject),
+  CONSTRAINT phone_pin_challenges_attempts_valid
+    CHECK (attempts_remaining BETWEEN 0 AND 5),
 
-  CONSTRAINT auth_accounts_user_provider_unique
-    UNIQUE (user_id, provider)
+  CONSTRAINT phone_pin_challenges_expiry_valid
+    CHECK (expires_at > created_at),
+
+  CONSTRAINT phone_pin_challenges_consumed_valid
+    CHECK (
+      consumed_at IS NULL
+      OR consumed_at >= created_at
+    )
 );
+
+CREATE INDEX phone_pin_challenges_phone_created_idx
+  ON phone_pin_challenges (phone_number, created_at DESC);
 
 
 CREATE TABLE sessions (
@@ -77,43 +112,142 @@ CREATE INDEX sessions_active_lookup_idx
   WHERE revoked_at IS NULL;
 
 
-CREATE TABLE partner_links (
+CREATE TABLE clubhouses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-  requester_user_id UUID NOT NULL
+  primary_user_id UUID NOT NULL
     REFERENCES users(id)
-    ON DELETE CASCADE,
+    ON DELETE RESTRICT,
 
-  recipient_user_id UUID NOT NULL
-    REFERENCES users(id)
-    ON DELETE CASCADE,
+  name TEXT NOT NULL,
 
-  accepted_at TIMESTAMPTZ,
-  revoked_at TIMESTAMPTZ,
+  deactivated_at TIMESTAMPTZ,
+
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-  CONSTRAINT partner_links_not_self
-    CHECK (requester_user_id <> recipient_user_id),
+  CONSTRAINT clubhouses_name_not_blank
+    CHECK (length(trim(name)) > 0)
+);
 
-  CONSTRAINT partner_links_acceptance_order
+
+CREATE TABLE clubhouse_members (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  clubhouse_id UUID NOT NULL
+    REFERENCES clubhouses(id)
+    ON DELETE CASCADE,
+
+  user_id UUID NOT NULL
+    REFERENCES users(id)
+    ON DELETE CASCADE,
+
+  joined_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deactivated_at TIMESTAMPTZ,
+
+  CONSTRAINT clubhouse_members_deactivated_after_joined
     CHECK (
-      accepted_at IS NULL
-      OR accepted_at >= created_at
-    ),
-
-  CONSTRAINT partner_links_revocation_order
-    CHECK (
-      revoked_at IS NULL
-      OR revoked_at >= created_at
+      deactivated_at IS NULL
+      OR deactivated_at >= joined_at
     )
 );
 
-CREATE UNIQUE INDEX partner_links_active_pair_unique
-  ON partner_links (
-    LEAST(requester_user_id, recipient_user_id),
-    GREATEST(requester_user_id, recipient_user_id)
-  )
-  WHERE revoked_at IS NULL;
+CREATE UNIQUE INDEX clubhouse_members_pair_unique
+  ON clubhouse_members (clubhouse_id, user_id);
+
+CREATE INDEX clubhouse_members_user_idx
+  ON clubhouse_members (user_id);
+
+
+/*
+ * Database backstop:
+ * the Primary belongs structurally to clubhouses.primary_user_id.
+ * They may never also appear as a Member of that same Clubhouse.
+ */
+CREATE FUNCTION prevent_primary_as_clubhouse_member()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM clubhouses
+    WHERE id = NEW.clubhouse_id
+      AND primary_user_id = NEW.user_id
+  ) THEN
+    RAISE EXCEPTION
+      'Clubhouse Primary cannot also be a Member'
+      USING ERRCODE = '23514';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER clubhouse_members_prevent_primary
+BEFORE INSERT OR UPDATE
+ON clubhouse_members
+FOR EACH ROW
+EXECUTE FUNCTION prevent_primary_as_clubhouse_member();
+
+
+CREATE TABLE audit_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  actor_user_id UUID
+    REFERENCES users(id)
+    ON DELETE SET NULL,
+
+  actor_snapshot JSONB,
+
+  action TEXT NOT NULL,
+
+  target_type TEXT NOT NULL,
+  target_id UUID,
+
+  target_snapshot JSONB,
+
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  CONSTRAINT audit_events_action_not_blank
+    CHECK (length(trim(action)) > 0),
+
+  CONSTRAINT audit_events_target_type_not_blank
+    CHECK (length(trim(target_type)) > 0)
+);
+
+CREATE INDEX audit_events_occurred_at_idx
+  ON audit_events (occurred_at DESC);
+
+CREATE INDEX audit_events_actor_idx
+  ON audit_events (actor_user_id, occurred_at DESC);
+
+CREATE INDEX audit_events_target_idx
+  ON audit_events (
+    target_type,
+    target_id,
+    occurred_at DESC
+  );
+
+
+CREATE FUNCTION prevent_audit_event_mutation()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RAISE EXCEPTION
+    'audit_events is append-only'
+    USING ERRCODE = '23514';
+END;
+$$;
+
+CREATE TRIGGER audit_events_append_only
+BEFORE UPDATE OR DELETE
+ON audit_events
+FOR EACH ROW
+EXECUTE FUNCTION prevent_audit_event_mutation();
 
 
 CREATE TABLE courses (
@@ -332,34 +466,6 @@ CREATE INDEX rounds_course_started_at_idx
   ON rounds (course_id, started_at DESC);
 
 
-CREATE TABLE round_shares (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-
-  round_id UUID NOT NULL
-    REFERENCES rounds(id)
-    ON DELETE CASCADE,
-
-  viewer_user_id UUID NOT NULL
-    REFERENCES users(id)
-    ON DELETE CASCADE,
-
-  granted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  revoked_at TIMESTAMPTZ,
-
-  CONSTRAINT round_shares_revocation_order
-    CHECK (
-      revoked_at IS NULL
-      OR revoked_at >= granted_at
-    ),
-
-  CONSTRAINT round_shares_round_viewer_unique
-    UNIQUE (round_id, viewer_user_id)
-);
-
-CREATE INDEX round_shares_viewer_idx
-  ON round_shares (viewer_user_id);
-
-
 CREATE TABLE location_samples (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
@@ -457,8 +563,8 @@ BEFORE UPDATE ON users
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER auth_accounts_set_updated_at
-BEFORE UPDATE ON auth_accounts
+CREATE TRIGGER clubhouses_set_updated_at
+BEFORE UPDATE ON clubhouses
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
@@ -481,6 +587,5 @@ CREATE TRIGGER rounds_set_updated_at
 BEFORE UPDATE ON rounds
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
-
 
 COMMIT;
