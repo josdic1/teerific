@@ -24,6 +24,55 @@ type Step =
   | "pin"
   | "profile";
 
+function formatUsPhoneInput(
+  raw: string,
+): string {
+  let digits =
+    raw.replace(
+      /\D/g,
+      "",
+    );
+
+  if (
+    digits.length > 10 &&
+    digits.startsWith("1")
+  ) {
+    digits =
+      digits.slice(1);
+  }
+
+  digits =
+    digits.slice(
+      0,
+      10,
+    );
+
+  if (
+    digits.length <= 3
+  ) {
+    return digits;
+  }
+
+  if (
+    digits.length <= 6
+  ) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  }
+
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+function hasCompleteUsPhone(
+  raw: string,
+): boolean {
+  return (
+    raw.replace(
+      /\D/g,
+      "",
+    ).length === 10
+  );
+}
+
 function normalizePhoneNumber(
   raw: string,
 ): string {
@@ -269,13 +318,22 @@ export default function LoginPage() {
     );
 
     try {
-      const input =
-        RequestPhonePinInputSchema.parse({
+      const parsedInput =
+        RequestPhonePinInputSchema.safeParse({
           phoneNumber:
             normalizePhoneNumber(
               phone,
             ),
         });
+
+      if (!parsedInput.success) {
+        throw new Error(
+          "Enter a valid phone number, including area code.",
+        );
+      }
+
+      const input =
+        parsedInput.data;
 
       const response =
         await fetch(
@@ -558,28 +616,39 @@ export default function LoginPage() {
             >
               <label className="auth-field">
                 <span>
-                  Phone number
+                  US mobile number
                 </span>
 
                 <input
                   type="tel"
                   autoComplete="tel"
-                  inputMode="tel"
+                  inputMode="numeric"
+                  maxLength={14}
+                  autoFocus
                   placeholder="(973) 555-0123"
                   value={phone}
                   onChange={event => {
                     setPhone(
-                      event.target.value,
+                      formatUsPhoneInput(
+                        event.target.value,
+                      ),
                     );
                   }}
                 />
+
+                <small className="auth-hint">
+                  Enter all 10 digits. +1 is added automatically.
+                </small>
               </label>
 
               <button
                 type="submit"
                 className="primary-button"
                 disabled={
-                  working
+                  working ||
+                  !hasCompleteUsPhone(
+                    phone,
+                  )
                 }
               >
                 {working

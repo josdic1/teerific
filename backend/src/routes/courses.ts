@@ -4,9 +4,13 @@ import {
 import {
   detectCourseAtPoint
 } from "../repositories/courseRepository.js";
+import {
+  createFieldTestCourse
+} from "../services/fieldTestCourseService.js";
 import { Router } from "express";
 import {
   CreateCourseInputSchema,
+  CreateFieldTestCourseInputSchema,
   CreateHoleInputSchema,
   IdSchema,
   UpdateCourseInputSchema,
@@ -77,6 +81,87 @@ function pgCode(
 
   return null;
 }
+
+
+coursesRouter.post(
+  "/field-test",
+  requireAdmin,
+  async (
+    request,
+    response
+  ) => {
+    const {
+      currentUser
+    } =
+      authContext(
+        request
+      );
+
+    const parsed =
+      CreateFieldTestCourseInputSchema
+        .safeParse(
+          request.body
+        );
+
+    if (
+      !parsed.success
+    ) {
+      response
+        .status(400)
+        .json({
+          error:
+            "INVALID_FIELD_TEST_COURSE",
+
+          issues:
+            parsed.error.issues
+        });
+
+      return;
+    }
+
+    const outcome =
+      await createFieldTestCourse(
+        parsed.data,
+        currentUser
+      );
+
+    if (
+      outcome.type ===
+      "holes_too_close"
+    ) {
+      response
+        .status(400)
+        .json({
+          error:
+            "FIELD_TEST_HOLES_TOO_CLOSE",
+
+          firstHoleNumber:
+            outcome.firstHoleNumber,
+
+          secondHoleNumber:
+            outcome.secondHoleNumber,
+
+          distanceMeters:
+            outcome.distanceMeters,
+
+          minimumMeters:
+            outcome.minimumMeters
+        });
+
+      return;
+    }
+
+    response
+      .status(201)
+      .json({
+        course:
+          outcome.course,
+
+        holes:
+          outcome.holes
+      });
+  }
+);
 
 
 coursesRouter.get(

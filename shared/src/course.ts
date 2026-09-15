@@ -195,6 +195,104 @@ export const UpdateHoleInputSchema =
       }
     );
 
+export const FieldTestHolePointSchema =
+  z.object({
+    holeNumber:
+      z.number()
+        .int()
+        .min(1)
+        .max(18),
+
+    location:
+      GeoPointSchema
+  })
+  .strict();
+
+export const CreateFieldTestCourseInputSchema =
+  z.object({
+    name:
+      CourseNameSchema,
+
+    address:
+      AddressSchema,
+
+    city:
+      PlaceNameSchema,
+
+    region:
+      PlaceNameSchema,
+
+    countryCode:
+      CountryCodeSchema,
+
+    timezone:
+      TimezoneSchema,
+
+    departureLocation:
+      GeoPointSchema,
+
+    holes:
+      z.array(
+        FieldTestHolePointSchema
+      )
+      .length(18)
+  })
+  .strict()
+  .superRefine(
+    (value, context) => {
+      const numbers =
+        value.holes.map(
+          hole =>
+            hole.holeNumber
+        );
+
+      const unique =
+        new Set(numbers);
+
+      const missing =
+        Array.from(
+          {
+            length: 18
+          },
+          (_, index) =>
+            index + 1
+        )
+        .filter(
+          holeNumber =>
+            !unique.has(
+              holeNumber
+            )
+        );
+
+      if (
+        unique.size !== 18 ||
+        missing.length > 0
+      ) {
+        context.addIssue({
+          code:
+            "custom",
+
+          path:
+            ["holes"],
+
+          message:
+            "Field test course requires exactly one point for each hole 1 through 18"
+        });
+      }
+    }
+  );
+
+
+export type CreateFieldTestCourseInput =
+  z.infer<
+    typeof CreateFieldTestCourseInputSchema
+  >;
+
+export type FieldTestHolePoint =
+  z.infer<
+    typeof FieldTestHolePointSchema
+  >;
+
 export type CourseDetectionInput =
   z.infer<
     typeof CourseDetectionInputSchema

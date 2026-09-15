@@ -4,6 +4,7 @@ import {
   Routes,
 } from "react-router-dom";
 
+import FieldCourseMapperPage from "./pages/FieldCourseMapperPage";
 import GolferRoundPage from "./pages/GolferRoundPage";
 import GolferStatusPage from "./pages/GolferStatusPage";
 import LoginPage from "./pages/LoginPage";
@@ -25,6 +26,13 @@ export default function AppRoutes() {
         path="/login"
         element={
           <LoginPage />
+        }
+      />
+
+      <Route
+        path="/admin/field-course"
+        element={
+          <FieldCourseMapperPage />
         }
       />
 

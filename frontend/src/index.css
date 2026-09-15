@@ -401,3 +401,173 @@ h1 {
     padding: 54px 0 38px;
   }
 }
+
+/* === Field-course mapper === */
+
+.field-mapper-page {
+  min-height: 100svh;
+  padding: 32px 18px;
+  background: var(--paper);
+}
+
+.field-mapper-card {
+  width: min(100%, 620px);
+  margin: 0 auto;
+  padding: 34px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+}
+
+.mapper-progress {
+  color: var(--green);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.mapper-heading {
+  padding: 48px 0 34px;
+}
+
+.mapper-fields {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.mapper-field-row {
+  display: grid;
+  grid-template-columns: 1fr 120px;
+  gap: 12px;
+}
+
+.mapper-point,
+.mapper-hole {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+}
+
+.mapper-point strong,
+.mapper-hole strong {
+  color: var(--ink);
+}
+
+.mapper-hole-status {
+  display: block;
+  margin-top: 3px;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.mapper-hole-next {
+  background: var(--green-soft);
+  margin-inline: -12px;
+  padding-inline: 12px;
+  border-radius: 10px;
+}
+
+.mapper-reading {
+  margin-top: -8px;
+  padding-bottom: 14px;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.mapper-hole-list {
+  margin-top: 10px;
+}
+
+.mapper-recorded {
+  color: var(--green);
+}
+
+.mapper-save {
+  width: 100%;
+  margin-top: 28px;
+}
+
+.mapper-success {
+  padding: 48px 0 10px;
+}
+
+@media (max-width: 560px) {
+  .field-mapper-page {
+    padding: 0;
+  }
+
+  .field-mapper-card {
+    min-height: 100svh;
+    border: 0;
+    border-radius: 0;
+    padding: 26px 22px;
+  }
+
+  .mapper-field-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mapper-distance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 20px 0 8px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.mapper-distance strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--ink);
+  font-size: 30px;
+  line-height: 1;
+}
+
+.mapper-distance-note {
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.mapper-distance-good {
+  background: var(--green-soft);
+  border-color: var(--green);
+}
+
+.mapper-distance-good .mapper-distance-note {
+  color: var(--green);
+}
+
+.mapper-distance-close .mapper-distance-note {
+  color: var(--danger);
+}
+
+@media (max-width: 560px) {
+  .mapper-distance {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+.auth-hint {
+  display: block;
+  margin-top: 6px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.mapper-draft-note {
+  margin: 10px 0 0;
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 700;
+}
