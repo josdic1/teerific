@@ -4,6 +4,10 @@ import {
 } from "react";
 
 import {
+  Link,
+} from "react-router-dom";
+
+import {
   AuthResponseSchema,
   LiveGolferStateSchema,
   RoundSchema,
@@ -13,14 +17,13 @@ import {
   type Round,
 } from "@teerific/shared";
 
+import { API_BASE } from "../lib/api";
+
 import {
   getGolferCurrentPosition,
   watchGolferPosition,
 } from "../lib/golferGeolocation";
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL ??
-  "http://127.0.0.1:3000";
 
 type CurrentUser =
   AuthResponse["user"];
@@ -68,7 +71,25 @@ async function readApiError(
       typeof body.error ===
       "string"
     ) {
-      return body.error;
+      switch (body.error) {
+        case "COURSE_AUTO_DETECTION_FAILED":
+          return "No Teerific course was found at your current location.";
+
+        case "ACTIVE_ROUND_ALREADY_EXISTS":
+          return "You already have an active round.";
+
+        case "ACTIVE_COURSE_NOT_FOUND":
+          return "That course is not currently available.";
+
+        case "ROUND_ALREADY_ENDED":
+          return "This round has already ended.";
+
+        case "UNAUTHENTICATED":
+          return "Sign in to continue.";
+
+        default:
+          return body.error;
+      }
     }
   } catch {
     // Fall through.
@@ -206,6 +227,17 @@ export default function GolferRoundPage() {
                   "include",
               },
             );
+
+          if (
+            authResponse.status ===
+            401
+          ) {
+            setUser(
+              null,
+            );
+
+            return;
+          }
 
           if (
             !authResponse.ok
@@ -766,6 +798,13 @@ export default function GolferRoundPage() {
           <p className="muted">
             You need a Teerific session before starting a round.
           </p>
+
+          <Link
+            to="/login?next=/golf"
+            className="primary-button"
+          >
+            Sign in
+          </Link>
 
           {error && (
             <div className="soft-error">

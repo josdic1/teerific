@@ -1,10 +1,12 @@
 import {
+  Navigate,
   Route,
   Routes,
 } from "react-router-dom";
 
 import GolferRoundPage from "./pages/GolferRoundPage";
 import GolferStatusPage from "./pages/GolferStatusPage";
+import LoginPage from "./pages/LoginPage";
 
 export default function AppRoutes() {
   return (
@@ -12,7 +14,17 @@ export default function AppRoutes() {
       <Route
         path="/"
         element={
-          <GolferStatusPage />
+          <Navigate
+            to="/golf"
+            replace
+          />
+        }
+      />
+
+      <Route
+        path="/login"
+        element={
+          <LoginPage />
         }
       />
 

@@ -13,13 +13,12 @@ import {
   type ArrivalContext,
   type ViewerCurrentLocationInput,
 } from "@teerific/shared";
+
+import { API_BASE } from "../lib/api";
 import {
   getViewerCurrentLocation,
 } from "../lib/getViewerCurrentLocation";
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL ??
-  "http://127.0.0.1:3000";
 
 function formatTime(value: string | null | undefined) {
   if (!value) {

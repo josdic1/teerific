@@ -236,6 +236,9 @@ h1 {
 }
 
 .primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   margin-top: 26px;
   padding: 12px 17px;
   border: 0;
