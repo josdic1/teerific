@@ -29,6 +29,8 @@ export const CourseSchema = z.object({
   countryCode: z.string().length(2),
   timezone: TimezoneSchema,
   boundary: GeoAreaSchema.nullable(),
+  departureLocation:
+    GeoPointSchema.nullable(),
   active: z.boolean(),
   createdAt: IsoDateTimeSchema,
   updatedAt: IsoDateTimeSchema
@@ -42,6 +44,90 @@ export const CourseSchema = z.object({
   }
 );
 
+
+export const CourseDetectionInputSchema =
+  z.object({
+    latitude:
+      z.number()
+        .min(-90)
+        .max(90),
+
+    longitude:
+      z.number()
+        .min(-180)
+        .max(180)
+  })
+  .strict();
+
+export const CourseDetectionStatusSchema =
+  z.enum([
+    "matched",
+    "no_match",
+    "ambiguous"
+  ]);
+
+export const CourseDetectionResultSchema =
+  z.object({
+    status:
+      CourseDetectionStatusSchema,
+
+    course:
+      CourseSchema.nullable(),
+
+    candidates:
+      z.array(
+        CourseSchema
+      )
+  })
+  .strict()
+  .superRefine(
+    (value, context) => {
+      if (
+        value.status === "matched" &&
+        (
+          value.course === null ||
+          value.candidates.length !== 1 ||
+          value.candidates[0]?.id !==
+            value.course.id
+        )
+      ) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Matched detection requires exactly one matching course"
+        });
+      }
+
+      if (
+        value.status === "no_match" &&
+        (
+          value.course !== null ||
+          value.candidates.length !== 0
+        )
+      ) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "No-match detection cannot contain candidate courses"
+        });
+      }
+
+      if (
+        value.status === "ambiguous" &&
+        (
+          value.course !== null ||
+          value.candidates.length < 2
+        )
+      ) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Ambiguous detection requires multiple candidate courses"
+        });
+      }
+    }
+  );
+
 const CourseInputBaseSchema = z.object({
   name: CourseNameSchema,
   address: AddressSchema,
@@ -50,6 +136,8 @@ const CourseInputBaseSchema = z.object({
   countryCode: CountryCodeSchema,
   timezone: TimezoneSchema,
   boundary: GeoAreaSchema.nullable().optional(),
+  departureLocation:
+    GeoPointSchema.nullable().optional(),
   active: z.boolean().optional()
 }).strict();
 
@@ -106,6 +194,16 @@ export const UpdateHoleInputSchema =
         message: "At least one hole field must be provided"
       }
     );
+
+export type CourseDetectionInput =
+  z.infer<
+    typeof CourseDetectionInputSchema
+  >;
+
+export type CourseDetectionResult =
+  z.infer<
+    typeof CourseDetectionResultSchema
+  >;
 
 export type Course =
   z.infer<typeof CourseSchema>;

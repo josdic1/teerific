@@ -35,8 +35,16 @@ type AddedMemberRow = {
   deactivated_at: Date | null;
 };
 
-type ActivationRow = {
+type StateChangeRow = {
+  found: boolean;
+  changed: boolean;
   deactivated_at: Date | null;
+};
+
+export type StateChangeResult = {
+  found: boolean;
+  changed: boolean;
+  deactivatedAt: string | null;
 };
 
 function toPrimary(
@@ -158,6 +166,122 @@ const CLUBHOUSE_SELECT = `
     ON primary_user.id =
       c.primary_user_id
 `;
+
+export async function ensurePrimaryClubhouse(
+  primaryUserId: string,
+  name: string,
+  db: DbExecutor = pool
+): Promise<{
+  clubhouse: Clubhouse;
+  created: boolean;
+}> {
+  const result =
+    await db.query<
+      ClubhouseRow & {
+        created: boolean;
+      }
+    >(
+      `
+        WITH inserted AS (
+          INSERT INTO clubhouses (
+            primary_user_id,
+            name
+          )
+          VALUES ($1, $2)
+
+          ON CONFLICT (
+            primary_user_id
+          )
+          DO NOTHING
+
+          RETURNING
+            id,
+            name,
+            primary_user_id,
+            deactivated_at,
+            created_at,
+            updated_at
+        )
+
+        SELECT
+          inserted.id,
+          inserted.name,
+          inserted.primary_user_id,
+
+          primary_user.display_name
+            AS primary_display_name,
+
+          inserted.deactivated_at,
+          inserted.created_at,
+          inserted.updated_at,
+
+          true AS created
+
+        FROM inserted
+
+        JOIN users primary_user
+          ON primary_user.id =
+            inserted.primary_user_id
+
+        UNION ALL
+
+        SELECT
+          c.id,
+          c.name,
+          c.primary_user_id,
+
+          primary_user.display_name
+            AS primary_display_name,
+
+          c.deactivated_at,
+          c.created_at,
+          c.updated_at,
+
+          false AS created
+
+        FROM clubhouses c
+
+        JOIN users primary_user
+          ON primary_user.id =
+            c.primary_user_id
+
+        WHERE
+          c.primary_user_id = $1
+
+          AND NOT EXISTS (
+            SELECT 1
+            FROM inserted
+          )
+
+        LIMIT 1
+      `,
+      [
+        primaryUserId,
+        name
+      ]
+    );
+
+  const row =
+    result.rows[0];
+
+  if (!row) {
+    throw new Error(
+      "Unable to ensure Primary Clubhouse"
+    );
+  }
+
+  return {
+    clubhouse:
+      await toClubhouse(
+        row,
+        db
+      ),
+
+    created:
+      row.created
+  };
+}
+
 
 export async function createClubhouse(
   primaryUserId: string,
@@ -359,31 +483,73 @@ export async function setClubhouseActive(
   primaryUserId: string,
   active: boolean,
   db: DbExecutor = pool
-): Promise<{
-  deactivatedAt: string | null;
-} | null> {
+): Promise<StateChangeResult> {
   const result =
-    await db.query<ActivationRow>(
+    await db.query<StateChangeRow>(
       `
-        UPDATE clubhouses
+        WITH target AS MATERIALIZED (
+          SELECT
+            id,
+            deactivated_at
+          FROM clubhouses
+          WHERE id = $1
+            AND primary_user_id = $2
+          FOR UPDATE
+        ),
 
-        SET deactivated_at =
-          CASE
-            WHEN $3::boolean
-              THEN NULL
+        changed AS (
+          UPDATE clubhouses c
 
-            ELSE COALESCE(
-              deactivated_at,
-              now()
+          SET deactivated_at =
+            CASE
+              WHEN $3::boolean
+                THEN NULL
+              ELSE now()
+            END
+
+          FROM target t
+
+          WHERE c.id = t.id
+            AND (
+              (
+                $3::boolean = true
+                AND t.deactivated_at IS NOT NULL
+              )
+              OR
+              (
+                $3::boolean = false
+                AND t.deactivated_at IS NULL
+              )
             )
-          END
 
-        WHERE id = $1
-          AND primary_user_id =
-            $2
+          RETURNING
+            c.deactivated_at
+        )
 
-        RETURNING
-          deactivated_at
+        SELECT
+          EXISTS(
+            SELECT 1 FROM target
+          ) AS found,
+
+          EXISTS(
+            SELECT 1 FROM changed
+          ) AS changed,
+
+          CASE
+            WHEN EXISTS(
+              SELECT 1 FROM changed
+            )
+            THEN (
+              SELECT deactivated_at
+              FROM changed
+              LIMIT 1
+            )
+            ELSE (
+              SELECT deactivated_at
+              FROM target
+              LIMIT 1
+            )
+          END AS deactivated_at
       `,
       [
         clubhouseId,
@@ -392,14 +558,18 @@ export async function setClubhouseActive(
       ]
     );
 
-  const row =
-    result.rows[0];
+  const row = result.rows[0];
 
   if (!row) {
-    return null;
+    throw new Error(
+      "Clubhouse state query returned no row"
+    );
   }
 
   return {
+    found: row.found,
+    changed: row.changed,
+
     deactivatedAt:
       row.deactivated_at
         ? row.deactivated_at.toISOString()
@@ -407,35 +577,79 @@ export async function setClubhouseActive(
   };
 }
 
+
 export async function setClubhouseMemberActive(
   clubhouseId: string,
   membershipId: string,
   active: boolean,
   db: DbExecutor = pool
-): Promise<{
-  deactivatedAt: string | null;
-} | null> {
+): Promise<StateChangeResult> {
   const result =
-    await db.query<ActivationRow>(
+    await db.query<StateChangeRow>(
       `
-        UPDATE clubhouse_members
+        WITH target AS MATERIALIZED (
+          SELECT
+            id,
+            deactivated_at
+          FROM clubhouse_members
+          WHERE id = $1
+            AND clubhouse_id = $2
+          FOR UPDATE
+        ),
 
-        SET deactivated_at =
-          CASE
-            WHEN $3::boolean
-              THEN NULL
+        changed AS (
+          UPDATE clubhouse_members cm
 
-            ELSE COALESCE(
-              deactivated_at,
-              now()
+          SET deactivated_at =
+            CASE
+              WHEN $3::boolean
+                THEN NULL
+              ELSE now()
+            END
+
+          FROM target t
+
+          WHERE cm.id = t.id
+            AND (
+              (
+                $3::boolean = true
+                AND t.deactivated_at IS NOT NULL
+              )
+              OR
+              (
+                $3::boolean = false
+                AND t.deactivated_at IS NULL
+              )
             )
-          END
 
-        WHERE id = $1
-          AND clubhouse_id = $2
+          RETURNING
+            cm.deactivated_at
+        )
 
-        RETURNING
-          deactivated_at
+        SELECT
+          EXISTS(
+            SELECT 1 FROM target
+          ) AS found,
+
+          EXISTS(
+            SELECT 1 FROM changed
+          ) AS changed,
+
+          CASE
+            WHEN EXISTS(
+              SELECT 1 FROM changed
+            )
+            THEN (
+              SELECT deactivated_at
+              FROM changed
+              LIMIT 1
+            )
+            ELSE (
+              SELECT deactivated_at
+              FROM target
+              LIMIT 1
+            )
+          END AS deactivated_at
       `,
       [
         membershipId,
@@ -444,20 +658,25 @@ export async function setClubhouseMemberActive(
       ]
     );
 
-  const row =
-    result.rows[0];
+  const row = result.rows[0];
 
   if (!row) {
-    return null;
+    throw new Error(
+      "Member state query returned no row"
+    );
   }
 
   return {
+    found: row.found,
+    changed: row.changed,
+
     deactivatedAt:
       row.deactivated_at
         ? row.deactivated_at.toISOString()
         : null
   };
 }
+
 
 export async function canUserViewPrimary(
   viewerUserId: string,

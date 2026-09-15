@@ -131,6 +131,10 @@ CREATE TABLE clubhouses (
 );
 
 
+CREATE UNIQUE INDEX clubhouses_one_per_primary_user_uidx
+ON clubhouses (primary_user_id);
+
+
 CREATE TABLE clubhouse_members (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
@@ -262,6 +266,7 @@ CREATE TABLE courses (
   timezone TEXT NOT NULL,
 
   boundary_geojson JSONB,
+  departure_location_geojson JSONB,
 
   active BOOLEAN NOT NULL DEFAULT false,
 
@@ -293,6 +298,19 @@ CREATE TABLE courses (
         jsonb_typeof(boundary_geojson) = 'object'
         AND boundary_geojson->>'type'
           IN ('Polygon', 'MultiPolygon')
+      )
+    ),
+
+  CONSTRAINT courses_departure_location_valid_type
+    CHECK (
+      departure_location_geojson IS NULL
+      OR (
+        jsonb_typeof(
+          departure_location_geojson
+        ) = 'object'
+        AND
+        departure_location_geojson->>'type'
+          = 'Point'
       )
     ),
 
@@ -386,8 +404,6 @@ CREATE TABLE destinations (
   latitude DOUBLE PRECISION NOT NULL,
   longitude DOUBLE PRECISION NOT NULL,
 
-  is_default BOOLEAN NOT NULL DEFAULT false,
-
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
@@ -404,11 +420,6 @@ CREATE TABLE destinations (
     CHECK (longitude BETWEEN -180 AND 180)
 );
 
-CREATE UNIQUE INDEX destinations_one_default_per_user
-  ON destinations (user_id)
-  WHERE is_default = true;
-
-
 CREATE TABLE rounds (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
@@ -419,10 +430,6 @@ CREATE TABLE rounds (
   course_id UUID NOT NULL
     REFERENCES courses(id)
     ON DELETE RESTRICT,
-
-  destination_id UUID
-    REFERENCES destinations(id)
-    ON DELETE SET NULL,
 
   course_detection_method TEXT NOT NULL,
 
@@ -464,6 +471,11 @@ CREATE INDEX rounds_golfer_started_at_idx
 
 CREATE INDEX rounds_course_started_at_idx
   ON rounds (course_id, started_at DESC);
+
+
+CREATE UNIQUE INDEX rounds_one_active_per_golfer_uidx
+ON rounds (golfer_user_id)
+WHERE ended_at IS NULL;
 
 
 CREATE TABLE location_samples (
@@ -515,6 +527,13 @@ CREATE TABLE location_samples (
 
 CREATE INDEX location_samples_round_recorded_at_idx
   ON location_samples (round_id, recorded_at DESC);
+
+
+CREATE INDEX location_samples_round_recorded_idx
+ON location_samples (
+  round_id,
+  recorded_at DESC
+);
 
 
 CREATE TABLE hole_visits (
@@ -589,3 +608,14 @@ FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
 COMMIT;
+
+
+CREATE UNIQUE INDEX hole_visits_one_open_per_round_uidx
+ON hole_visits (round_id)
+WHERE exited_at IS NULL;
+
+CREATE INDEX hole_visits_round_entered_idx
+ON hole_visits (
+  round_id,
+  entered_at
+);

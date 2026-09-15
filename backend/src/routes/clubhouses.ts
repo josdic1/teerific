@@ -337,13 +337,12 @@ async function setClubhouseState(
 
   if (!clubhouseId.success) {
     response.status(400).json({
-      error:
-        "INVALID_REQUEST"
+      error: "INVALID_REQUEST"
     });
     return;
   }
 
-  const changed =
+  const outcome =
     await withTransaction(
       async (client) => {
         const result =
@@ -354,30 +353,39 @@ async function setClubhouseState(
             client
           );
 
-        if (!result) {
-          return null;
+        if (!result.found) {
+          return {
+            type: "not_primary"
+          } as const;
+        }
+
+        /*
+         * Already in requested state.
+         * Successful/idempotent request,
+         * but nothing happened, so no audit event.
+         */
+        if (!result.changed) {
+          return {
+            type: "unchanged"
+          } as const;
         }
 
         await audit(
           {
-            actor:
-              currentUser,
+            actor: currentUser,
 
             action:
               active
                 ? "clubhouse.reactivated"
                 : "clubhouse.deactivated",
 
-            targetType:
-              "clubhouse",
+            targetType: "clubhouse",
 
             targetId:
               clubhouseId.data,
 
             targetSnapshot: {
-              id:
-                clubhouseId.data,
-
+              id: clubhouseId.data,
               deactivatedAt:
                 result.deactivatedAt
             }
@@ -385,11 +393,16 @@ async function setClubhouseState(
           client
         );
 
-        return result;
+        return {
+          type: "changed"
+        } as const;
       }
     );
 
-  if (!changed) {
+  if (
+    outcome.type ===
+    "not_primary"
+  ) {
     response.status(403).json({
       error:
         "CLUBHOUSE_PRIMARY_REQUIRED"
@@ -458,8 +471,7 @@ async function setMemberState(
     !membershipId.success
   ) {
     response.status(400).json({
-      error:
-        "INVALID_REQUEST"
+      error: "INVALID_REQUEST"
     });
     return;
   }
@@ -476,12 +488,11 @@ async function setMemberState(
 
         if (!primary) {
           return {
-            type:
-              "not_primary"
+            type: "not_primary"
           } as const;
         }
 
-        const changed =
+        const result =
           await setClubhouseMemberActive(
             clubhouseId.data,
             membershipId.data,
@@ -489,17 +500,21 @@ async function setMemberState(
             client
           );
 
-        if (!changed) {
+        if (!result.found) {
           return {
-            type:
-              "not_found"
+            type: "not_found"
+          } as const;
+        }
+
+        if (!result.changed) {
+          return {
+            type: "unchanged"
           } as const;
         }
 
         await audit(
           {
-            actor:
-              currentUser,
+            actor: currentUser,
 
             action:
               active
@@ -513,22 +528,20 @@ async function setMemberState(
               membershipId.data,
 
             targetSnapshot: {
-              id:
-                membershipId.data,
+              id: membershipId.data,
 
               clubhouseId:
                 clubhouseId.data,
 
               deactivatedAt:
-                changed.deactivatedAt
+                result.deactivatedAt
             }
           },
           client
         );
 
         return {
-          type:
-            "changed"
+          type: "changed"
         } as const;
       }
     );

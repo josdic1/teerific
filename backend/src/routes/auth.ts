@@ -39,6 +39,9 @@ import {
   revokeSession,
   updateAccount
 } from "../repositories/authRepository.js";
+import {
+  ensurePrimaryClubhouse
+} from "../repositories/clubhouseRepository.js";
 
 export const authRouter =
   Router();
@@ -355,6 +358,64 @@ authRouter.patch(
             },
             client
           );
+
+          /*
+           * Every onboarded non-admin golfer owns
+           * exactly one Clubhouse.
+           *
+           * This is intentionally idempotent:
+           * an existing Clubhouse is returned rather
+           * than duplicated.
+           */
+          if (
+            !user.isAdmin &&
+            user.displayName !== null
+          ) {
+            const ensured =
+              await ensurePrimaryClubhouse(
+                user.id,
+                `${user.displayName} Clubhouse`,
+                client
+              );
+
+            if (ensured.created) {
+              await audit(
+                {
+                  actor:
+                    user,
+
+                  action:
+                    "clubhouse.created",
+
+                  targetType:
+                    "clubhouse",
+
+                  targetId:
+                    ensured.clubhouse.id,
+
+                  targetSnapshot: {
+                    id:
+                      ensured.clubhouse.id,
+
+                    name:
+                      ensured.clubhouse.name,
+
+                    primary:
+                      ensured.clubhouse.primary,
+
+                    deactivatedAt:
+                      ensured.clubhouse.deactivatedAt
+                  },
+
+                  metadata: {
+                    source:
+                      "onboarding_auto_create"
+                  }
+                },
+                client
+              );
+            }
+          }
 
           return user;
         }
