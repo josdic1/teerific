@@ -287,3 +287,114 @@ h1 {
     gap: 8px;
   }
 }
+
+.app-shell {
+  min-height: 100svh;
+}
+
+
+/* === Golfer round page === */
+
+.golf-page {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 32px 18px;
+  background: var(--paper);
+}
+
+.golf-card {
+  width: min(100%, 520px);
+  padding: 34px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+}
+
+.golf-hero,
+.golf-course-block {
+  padding: 58px 0 38px;
+}
+
+.golf-hole {
+  color: var(--ink);
+  font-size: clamp(56px, 14vw, 82px);
+  line-height: 0.94;
+  letter-spacing: -0.055em;
+  font-weight: 650;
+}
+
+.golf-start-button {
+  width: 100%;
+}
+
+.golf-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 26px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.tracking-note {
+  margin-top: 22px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.tracking-warning {
+  margin-top: 22px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--ink);
+  background: var(--green-soft);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.round-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.round-actions .primary-button {
+  margin-top: 0;
+}
+
+.secondary-button {
+  padding: 12px 17px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--ink);
+  background: transparent;
+  font-weight: 700;
+}
+
+.primary-button:disabled,
+.secondary-button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+@media (max-width: 560px) {
+  .golf-page {
+    display: block;
+    padding: 0;
+  }
+
+  .golf-card {
+    min-height: 100svh;
+    border: 0;
+    border-radius: 0;
+    padding: 26px 22px;
+  }
+
+  .golf-course-block {
+    padding: 54px 0 38px;
+  }
+}
