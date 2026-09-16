@@ -189,12 +189,6 @@ export default function GolferRoundPage() {
     false,
   );
 
-  const [
-    trackingEnabled,
-    setTrackingEnabled,
-  ] = useState(
-    true,
-  );
 
   const [
     error,
@@ -310,10 +304,6 @@ export default function GolferRoundPage() {
             currentRound,
           );
 
-          setTrackingEnabled(
-            currentRound !==
-            null,
-          );
         } catch (
           caught
         ) {
@@ -483,8 +473,7 @@ export default function GolferRoundPage() {
   useEffect(
     () => {
       if (
-        !round ||
-        !trackingEnabled
+        !round
       ) {
         setTracking(
           false,
@@ -566,7 +555,6 @@ export default function GolferRoundPage() {
     },
     [
       round,
-      trackingEnabled,
     ],
   );
 
@@ -638,10 +626,6 @@ export default function GolferRoundPage() {
         createdRound,
       );
 
-      setTrackingEnabled(
-        true,
-      );
-
       try {
         await postLocationSample(
           createdRound.id,
@@ -694,12 +678,12 @@ export default function GolferRoundPage() {
     );
 
     /*
-     * Stop browser GPS before ending the
-     * server-side round so no location
-     * sample races the end request.
+     * Removing the active round stops the
+     * GPS watcher. If ending fails, restoring
+     * the round automatically restarts GPS.
      */
-    setTrackingEnabled(
-      false,
+    setRound(
+      null,
     );
 
     try {
@@ -737,9 +721,6 @@ export default function GolferRoundPage() {
         );
       }
 
-      setRound(
-        null,
-      );
     } catch (
       caught
     ) {
@@ -750,11 +731,11 @@ export default function GolferRoundPage() {
       );
 
       /*
-       * Ending failed, so the server round
-       * is still active. Resume tracking.
+       * Ending failed, so restore the active
+       * round. The GPS effect restarts itself.
        */
-      setTrackingEnabled(
-        true,
+      setRound(
+        activeRound,
       );
     } finally {
       setWorking(
