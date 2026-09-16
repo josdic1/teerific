@@ -140,6 +140,41 @@ async function postLocationSample(
   }
 }
 
+async function fetchLiveGolferState(
+  userId: string,
+): Promise<LiveGolferState> {
+  const response =
+    await fetch(
+      `${API_BASE}/api/golfers/${encodeURIComponent(
+        userId,
+      )}/live-state`,
+      {
+        credentials:
+          "include",
+      },
+    );
+
+  if (
+    !response.ok
+  ) {
+    throw new Error(
+      await readApiError(
+        response,
+      ),
+    );
+  }
+
+  const payload =
+    await response.json() as {
+      state:
+        unknown;
+    };
+
+  return LiveGolferStateSchema.parse(
+    payload.state,
+  );
+}
+
 export default function GolferRoundPage() {
   const [
     user,
@@ -473,7 +508,8 @@ export default function GolferRoundPage() {
   useEffect(
     () => {
       if (
-        !round
+        !round ||
+        !user
       ) {
         setTracking(
           false,
@@ -514,6 +550,19 @@ export default function GolferRoundPage() {
                       round.id,
                       location,
                     );
+
+                    const nextState =
+                      await fetchLiveGolferState(
+                        user.id,
+                      );
+
+                    if (
+                      active
+                    ) {
+                      setLiveState(
+                        nextState,
+                      );
+                    }
                   },
                 )
                 .catch(
@@ -555,10 +604,17 @@ export default function GolferRoundPage() {
     },
     [
       round,
+      user,
     ],
   );
 
   async function startRound() {
+    if (
+      !user
+    ) {
+      return;
+    }
+
     setWorking(
       true,
     );
@@ -630,6 +686,15 @@ export default function GolferRoundPage() {
         await postLocationSample(
           createdRound.id,
           location,
+        );
+
+        const nextState =
+          await fetchLiveGolferState(
+            user.id,
+          );
+
+        setLiveState(
+          nextState,
         );
       } catch (
         caught
