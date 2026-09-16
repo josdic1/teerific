@@ -26,6 +26,11 @@ import {
   listAdminUsers
 } from "../repositories/adminReadRepository.js";
 import {
+  getCourse,
+  listCourseHoles,
+  listCourses
+} from "../repositories/courseRepository.js";
+import {
   deleteCourseCompletely,
   deleteHoleCompletely,
   deleteSimpleRecord,
@@ -92,6 +97,53 @@ async function deleteSimple(
 
 
 
+
+
+adminRouter.get(
+  "/courses",
+  async (_request, response) => {
+    const courses =
+      await listCourses();
+
+    response.status(200).json({
+      courses
+    });
+  }
+);
+
+
+adminRouter.get(
+  "/courses/:id",
+  async (request, response) => {
+    const id =
+      parseId(request.params.id);
+
+    if (!id) {
+      response.status(400).json({
+        error: "INVALID_ID"
+      });
+      return;
+    }
+
+    const course =
+      await getCourse(id);
+
+    if (!course) {
+      response.status(404).json({
+        error: "COURSE_NOT_FOUND"
+      });
+      return;
+    }
+
+    const holes =
+      await listCourseHoles(id);
+
+    response.status(200).json({
+      course,
+      holes
+    });
+  }
+);
 
 
 adminRouter.get(

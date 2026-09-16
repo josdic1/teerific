@@ -571,3 +571,199 @@ h1 {
   font-size: 12px;
   font-weight: 700;
 }
+
+/* Admin */
+
+.admin-page {
+  min-height: 100vh;
+  padding: 48px 24px;
+}
+
+.admin-panel {
+  width: min(920px, 100%);
+  margin: 0 auto;
+}
+
+.admin-header,
+.admin-course-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 32px;
+  margin-bottom: 36px;
+}
+
+.admin-header h1,
+.admin-course-detail-header h1 {
+  margin: 8px 0 10px;
+  font-size: clamp(40px, 7vw, 64px);
+  line-height: .95;
+  letter-spacing: -.055em;
+}
+
+.admin-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-course-list {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-course-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 22px 24px;
+  border: 1px solid #dfe4dd;
+  border-radius: 18px;
+  background: #fff;
+  color: inherit;
+  text-decoration: none;
+}
+
+.admin-course-card:hover {
+  border-color: #0e5e2b;
+}
+
+.admin-course-name {
+  color: #123d28;
+  font-size: 20px;
+  font-weight: 750;
+}
+
+.admin-course-meta,
+.admin-course-address {
+  margin-top: 4px;
+  color: #68786e;
+  font-size: 14px;
+}
+
+.admin-course-status {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.admin-arrow {
+  color: #0e5e2b;
+  font-size: 24px;
+}
+
+.status-pill {
+  display: inline-flex;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: #edf0ec;
+  color: #637168;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+.status-active {
+  background: #e8f3ea;
+  color: #0e5e2b;
+}
+
+.admin-back {
+  display: inline-block;
+  margin-bottom: 28px;
+  color: #0e5e2b;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.admin-course-facts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 28px 0;
+}
+
+.admin-fact,
+.admin-departure {
+  padding: 18px;
+  border: 1px solid #dfe4dd;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.admin-fact span {
+  display: block;
+  margin-bottom: 8px;
+  color: #68786e;
+  font-size: 12px;
+}
+
+.admin-fact strong {
+  color: #123d28;
+}
+
+.admin-departure {
+  margin-bottom: 34px;
+}
+
+.admin-holes-heading {
+  margin: 36px 0 16px;
+}
+
+.admin-holes-heading h2 {
+  margin: 6px 0 0;
+  color: #123d28;
+  font-size: 28px;
+}
+
+.admin-hole-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.admin-hole-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid #dfe4dd;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.admin-hole-number {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  border-radius: 50%;
+  background: #0e5e2b;
+  color: #fff;
+  font-weight: 800;
+}
+
+.admin-empty {
+  padding: 28px;
+  border: 1px dashed #cfd7d0;
+  border-radius: 16px;
+  color: #68786e;
+}
+
+@media (max-width: 700px) {
+  .admin-header,
+  .admin-course-detail-header {
+    flex-direction: column;
+  }
+
+  .admin-course-facts,
+  .admin-hole-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-course-card {
+    align-items: flex-start;
+  }
+}

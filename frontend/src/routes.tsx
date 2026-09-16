@@ -1,3 +1,5 @@
+import AdminPage from "./pages/AdminPage";
+import AdminCoursePage from "./pages/AdminCoursePage";
 import {
   Navigate,
   Route,
@@ -49,6 +51,16 @@ export default function AppRoutes() {
           <GolferStatusPage />
         }
       />
+          <Route
+        path="/admin"
+        element={<AdminPage />}
+      />
+
+      <Route
+        path="/admin/courses/:courseId"
+        element={<AdminCoursePage />}
+      />
+
     </Routes>
   );
 }
