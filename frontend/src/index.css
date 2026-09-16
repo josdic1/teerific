@@ -85,6 +85,32 @@ a {
   gap: 18px;
 }
 
+.topbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.signout-button {
+  padding: 7px 0;
+  border: 0;
+  color: var(--ink-soft);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.signout-button:hover {
+  color: var(--ink);
+}
+
+.signout-button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
 .brand {
   color: var(--green);
   font-size: 13px;

@@ -654,6 +654,69 @@ export default function GolferRoundPage() {
     ],
   );
 
+  async function signOut() {
+    setWorking(
+      true,
+    );
+
+    setError(
+      null,
+    );
+
+    try {
+      const response =
+        await fetch(
+          `${API_BASE}/api/auth/logout`,
+          {
+            method:
+              "POST",
+
+            credentials:
+              "include",
+          },
+        );
+
+      if (
+        !response.ok &&
+        response.status !== 401
+      ) {
+        throw new Error(
+          await readApiError(
+            response,
+          ),
+        );
+      }
+
+      setUser(
+        null,
+      );
+
+      setRound(
+        null,
+      );
+
+      setLiveState(
+        null,
+      );
+
+      window.location.replace(
+        "/login",
+      );
+    } catch (
+      caught
+    ) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "SIGN_OUT_FAILED",
+      );
+
+      setWorking(
+        false,
+      );
+    }
+  }
+
   async function startRound() {
     if (
       !user
@@ -919,8 +982,21 @@ export default function GolferRoundPage() {
               TEERIFIC
             </div>
 
-            <div className="idle-pill">
-              OFF COURSE
+            <div className="topbar-actions">
+              <div className="idle-pill">
+                OFF COURSE
+              </div>
+
+              <button
+                type="button"
+                className="signout-button"
+                disabled={working}
+                onClick={() => {
+                  void signOut();
+                }}
+              >
+                Sign out
+              </button>
             </div>
           </header>
 
@@ -978,10 +1054,23 @@ export default function GolferRoundPage() {
             TEERIFIC
           </div>
 
-          <div className="live-pill">
-            <span className="status-dot" />
+          <div className="topbar-actions">
+            <div className="live-pill">
+              <span className="status-dot" />
 
-            LIVE
+              LIVE
+            </div>
+
+            <button
+              type="button"
+              className="signout-button"
+              disabled={working}
+              onClick={() => {
+                void signOut();
+              }}
+            >
+              Sign out
+            </button>
           </div>
         </header>
 
