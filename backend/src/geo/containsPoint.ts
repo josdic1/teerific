@@ -178,3 +178,173 @@ export function areaContainsPoint(
       )
   );
 }
+
+
+const METERS_PER_LATITUDE_DEGREE =
+  111_320;
+
+function pointToSegmentDistanceMeters(
+  longitude: number,
+  latitude: number,
+  a: Position,
+  b: Position
+): number {
+  const longitudeScale =
+    METERS_PER_LATITUDE_DEGREE *
+    Math.max(
+      Math.cos(
+        latitude *
+        Math.PI /
+        180
+      ),
+      0.000001
+    );
+
+  const ax =
+    (a[0] - longitude) *
+    longitudeScale;
+
+  const ay =
+    (a[1] - latitude) *
+    METERS_PER_LATITUDE_DEGREE;
+
+  const bx =
+    (b[0] - longitude) *
+    longitudeScale;
+
+  const by =
+    (b[1] - latitude) *
+    METERS_PER_LATITUDE_DEGREE;
+
+  const dx =
+    bx - ax;
+
+  const dy =
+    by - ay;
+
+  const lengthSquared =
+    dx * dx +
+    dy * dy;
+
+  if (
+    lengthSquared === 0
+  ) {
+    return Math.hypot(
+      ax,
+      ay
+    );
+  }
+
+  const projection =
+    Math.max(
+      0,
+      Math.min(
+        1,
+        -(ax * dx + ay * dy) /
+          lengthSquared
+      )
+    );
+
+  return Math.hypot(
+    ax + projection * dx,
+    ay + projection * dy
+  );
+}
+
+function ringDistanceMeters(
+  longitude: number,
+  latitude: number,
+  ring: Position[]
+): number {
+  let minimum =
+    Number.POSITIVE_INFINITY;
+
+  for (
+    let index = 0;
+    index < ring.length;
+    index += 1
+  ) {
+    const a =
+      ring[index];
+
+    const b =
+      ring[
+        (index + 1) %
+        ring.length
+      ];
+
+    if (
+      !a ||
+      !b
+    ) {
+      continue;
+    }
+
+    minimum =
+      Math.min(
+        minimum,
+        pointToSegmentDistanceMeters(
+          longitude,
+          latitude,
+          a,
+          b
+        )
+      );
+  }
+
+  return minimum;
+}
+
+function polygonDistanceMeters(
+  longitude: number,
+  latitude: number,
+  rings: Position[][]
+): number {
+  if (
+    pointInPolygon(
+      [longitude, latitude],
+      rings
+    )
+  ) {
+    return 0;
+  }
+
+  return Math.min(
+    ...rings.map(
+      ring =>
+        ringDistanceMeters(
+          longitude,
+          latitude,
+          ring
+        )
+    )
+  );
+}
+
+export function areaDistanceMeters(
+  area: GeoArea,
+  longitude: number,
+  latitude: number
+): number {
+  if (
+    area.type ===
+    "Polygon"
+  ) {
+    return polygonDistanceMeters(
+      longitude,
+      latitude,
+      area.coordinates
+    );
+  }
+
+  return Math.min(
+    ...area.coordinates.map(
+      polygon =>
+        polygonDistanceMeters(
+          longitude,
+          latitude,
+          polygon
+        )
+    )
+  );
+}

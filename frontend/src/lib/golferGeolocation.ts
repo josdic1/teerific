@@ -144,7 +144,7 @@ Promise<LocationUpdateInput> {
               15_000,
 
             maximumAge:
-              5_000,
+              0,
           },
         );
     },
@@ -218,7 +218,7 @@ export function watchGolferPosition(
             15_000,
 
           maximumAge:
-            5_000,
+            0,
         },
       );
 

@@ -509,7 +509,8 @@ export default function GolferRoundPage() {
     () => {
       if (
         !round ||
-        !user
+        !user ||
+        !pageVisible
       ) {
         setTracking(
           false,
@@ -533,67 +534,111 @@ export default function GolferRoundPage() {
         null,
       );
 
-      const stopWatching =
-        watchGolferPosition(
-          location => {
-            uploadChain =
-              uploadChain
-                .then(
-                  async () => {
-                    if (
-                      !active
-                    ) {
-                      return;
-                    }
+      const reportError =
+        (caught: Error) => {
+          if (
+            active
+          ) {
+            setError(
+              caught.message,
+            );
+          }
+        };
 
-                    await postLocationSample(
-                      round.id,
-                      location,
+      const queueLocation =
+        (
+          location:
+            LocationUpdateInput,
+        ) => {
+          uploadChain =
+            uploadChain
+              .then(
+                async () => {
+                  if (
+                    !active
+                  ) {
+                    return;
+                  }
+
+                  await postLocationSample(
+                    round.id,
+                    location,
+                  );
+
+                  const nextState =
+                    await fetchLiveGolferState(
+                      user.id,
                     );
 
-                    const nextState =
-                      await fetchLiveGolferState(
-                        user.id,
-                      );
-
-                    if (
-                      active
-                    ) {
-                      setLiveState(
-                        nextState,
-                      );
-                    }
-                  },
-                )
-                .catch(
-                  caught => {
-                    if (
-                      active
-                    ) {
-                      setError(
-                        caught instanceof Error
-                          ? caught.message
-                          : "GPS_UPLOAD_FAILED",
-                      );
-                    }
-                  },
-                );
-          },
-
-          caught => {
-            if (
-              active
-            ) {
-              setError(
-                caught.message,
+                  if (
+                    active
+                  ) {
+                    setLiveState(
+                      nextState,
+                    );
+                  }
+                },
+              )
+              .catch(
+                caught => {
+                  reportError(
+                    caught instanceof Error
+                      ? caught
+                      : new Error(
+                          "GPS_UPLOAD_FAILED",
+                        ),
+                  );
+                },
               );
+        };
+
+      /*
+       * iOS Safari may suspend watchPosition while
+       * Google Earth is in front. Every foreground
+       * return therefore forces a fresh position,
+       * then a second fresh confirmation sample.
+       */
+      void getGolferCurrentPosition()
+        .then(
+          queueLocation,
+        )
+        .catch(
+          reportError,
+        );
+
+      const confirmationTimer =
+        window.setTimeout(
+          () => {
+            if (
+              !active
+            ) {
+              return;
             }
+
+            void getGolferCurrentPosition()
+              .then(
+                queueLocation,
+              )
+              .catch(
+                reportError,
+              );
           },
+          2_500,
+        );
+
+      const stopWatching =
+        watchGolferPosition(
+          queueLocation,
+          reportError,
         );
 
       return () => {
         active =
           false;
+
+        window.clearTimeout(
+          confirmationTimer,
+        );
 
         stopWatching();
 
@@ -605,6 +650,7 @@ export default function GolferRoundPage() {
     [
       round,
       user,
+      pageVisible,
     ],
   );
 

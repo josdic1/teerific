@@ -11,7 +11,8 @@ import type {
   DbExecutor
 } from "../db/transaction.js";
 import {
-  areaContainsPoint
+  areaContainsPoint,
+  areaDistanceMeters
 } from "../geo/containsPoint.js";
 import {
   applyConfirmedHoleTransition
@@ -45,6 +46,9 @@ type LocationRow = {
   heading_degrees: number | null;
   recorded_at: Date;
 };
+
+const MAX_ACCURACY_ASSIST_METERS =
+  35;
 
 const LOCATION_COLUMNS = `
   id,
@@ -119,7 +123,21 @@ async function detectHole(
       [courseId]
     );
 
-  const matches: string[] = [];
+  const exactMatches:
+    string[] =
+    [];
+
+  const accuracyMatches:
+    string[] =
+    [];
+
+  const accuracyTolerance =
+    input.accuracyMeters === null
+      ? 0
+      : Math.min(
+          input.accuracyMeters,
+          MAX_ACCURACY_ASSIST_METERS
+        );
 
   for (
     const hole of holes.rows
@@ -140,19 +158,48 @@ async function detectHole(
         input.latitude
       )
     ) {
-      matches.push(
+      exactMatches.push(
+        hole.id
+      );
+
+      continue;
+    }
+
+    if (
+      accuracyTolerance > 0 &&
+      areaDistanceMeters(
+        parsed.data,
+        input.longitude,
+        input.latitude
+      ) <= accuracyTolerance
+    ) {
+      accuracyMatches.push(
         hole.id
       );
     }
   }
 
   /*
-   * Ambiguous overlap is not silently guessed.
-   * Zero matches = outside known hole geometry.
-   * Multiple matches = course geometry needs resolution.
+   * Prefer an exact geometric hit. If the phone's
+   * best point falls just outside the 18m zone, its
+   * reported horizontal uncertainty may rescue the
+   * sample only when exactly one hole is plausible.
+   * Ambiguity is still never guessed.
    */
-  return matches.length === 1
-    ? matches[0] ?? null
+  if (
+    exactMatches.length === 1
+  ) {
+    return exactMatches[0] ?? null;
+  }
+
+  if (
+    exactMatches.length > 1
+  ) {
+    return null;
+  }
+
+  return accuracyMatches.length === 1
+    ? accuracyMatches[0] ?? null
     : null;
 }
 
