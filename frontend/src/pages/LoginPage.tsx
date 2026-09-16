@@ -569,8 +569,8 @@ export default function LoginPage() {
     checkingSession
   ) {
     return (
-      <main className="golf-page">
-        <section className="golf-card">
+      <main className="auth-page">
+        <section className="auth-card">
           <div className="brand">
             TEERIFIC
           </div>
@@ -584,8 +584,8 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="golf-page">
-      <section className="golf-card">
+    <main className="auth-page">
+      <section className="auth-card">
         <div className="brand">
           TEERIFIC
         </div>
@@ -620,11 +620,11 @@ export default function LoginPage() {
                 </span>
 
                 <input
+                  className="auth-phone-input"
                   type="tel"
                   autoComplete="tel"
                   inputMode="numeric"
                   maxLength={14}
-                  autoFocus
                   placeholder="(973) 555-0123"
                   value={phone}
                   onChange={event => {
@@ -689,6 +689,7 @@ export default function LoginPage() {
                 </span>
 
                 <input
+                  className="auth-code-input"
                   type="text"
                   inputMode="numeric"
                   autoComplete="one-time-code"

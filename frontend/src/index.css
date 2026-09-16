@@ -767,3 +767,193 @@ h1 {
     align-items: flex-start;
   }
 }
+
+/* === Auth experience === */
+
+.auth-page {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding:
+    max(28px, env(safe-area-inset-top))
+    20px
+    max(28px, env(safe-area-inset-bottom));
+  background: var(--paper);
+}
+
+.auth-card {
+  width: min(100%, 460px);
+  padding: 42px;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background: var(--surface);
+  box-shadow:
+    0 1px 2px rgba(18, 60, 38, 0.03),
+    0 18px 60px rgba(18, 60, 38, 0.07);
+}
+
+.auth-card .brand {
+  font-size: 12px;
+  letter-spacing: 0.18em;
+}
+
+.auth-card .golf-hero {
+  padding: 64px 0 34px;
+}
+
+.auth-card .golf-hero h1 {
+  max-width: 390px;
+  font-size: clamp(44px, 10vw, 62px);
+  line-height: 0.94;
+  letter-spacing: -0.055em;
+}
+
+.auth-card .golf-hero .muted {
+  max-width: 340px;
+  margin-top: 18px;
+  font-size: 15px;
+}
+
+.auth-form {
+  display: grid;
+  gap: 14px;
+}
+
+.auth-field {
+  display: grid;
+  gap: 9px;
+}
+
+.auth-field > span {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.auth-field input {
+  width: 100%;
+  min-width: 0;
+  height: 60px;
+  padding: 0 17px;
+  border: 1px solid #cfd8d0;
+  border-radius: 15px;
+  outline: none;
+  background: #fbfcf8;
+  color: var(--ink);
+  font-size: 19px;
+  line-height: 1;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    background 140ms ease;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.auth-field input::placeholder {
+  color: #98a49b;
+}
+
+.auth-field input:focus {
+  border-color: var(--green);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(14, 94, 43, 0.1);
+}
+
+.auth-phone-input {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.025em;
+}
+
+.auth-code-input {
+  font-size: 30px !important;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.auth-card .auth-hint {
+  margin: 0;
+  color: #75847a;
+  font-size: 12px;
+}
+
+.auth-card .primary-button,
+.auth-card .secondary-button {
+  width: 100%;
+  min-height: 56px;
+  margin: 0;
+  border-radius: 15px;
+  font-size: 15px;
+  font-weight: 750;
+  transition:
+    transform 100ms ease,
+    opacity 120ms ease,
+    background 120ms ease;
+}
+
+.auth-card .primary-button {
+  margin-top: 10px;
+  box-shadow: 0 8px 22px rgba(14, 94, 43, 0.16);
+}
+
+.auth-card .primary-button:not(:disabled):active,
+.auth-card .secondary-button:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+.auth-card .secondary-button {
+  margin-top: 0;
+  background: #fff;
+}
+
+.auth-card .soft-error {
+  margin-top: 18px;
+  padding: 13px 15px;
+  border: 1px solid #ead2d2;
+  border-radius: 12px;
+  background: #fff8f8;
+  color: var(--danger);
+  line-height: 1.4;
+}
+
+@media (max-width: 560px) {
+  .auth-page {
+    display: block;
+    padding: 0;
+    background: var(--surface);
+  }
+
+  .auth-card {
+    min-height: 100svh;
+    width: 100%;
+    padding:
+      max(28px, env(safe-area-inset-top))
+      24px
+      max(30px, env(safe-area-inset-bottom));
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .auth-card .golf-hero {
+    padding: 72px 0 38px;
+  }
+
+  .auth-card .golf-hero h1 {
+    font-size: clamp(46px, 14vw, 60px);
+  }
+
+  .auth-field input {
+    height: 62px;
+    font-size: 20px;
+    border-radius: 16px;
+  }
+
+  .auth-card .primary-button,
+  .auth-card .secondary-button {
+    min-height: 58px;
+    border-radius: 16px;
+  }
+}
