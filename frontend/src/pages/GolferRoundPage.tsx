@@ -1196,15 +1196,17 @@ export default function GolferRoundPage() {
           </div>
         </div>
 
-        {!pageVisible && (
+        {!isNativeGolferLocation() && !pageVisible && (
           <div className="tracking-warning">
             Teerific is backgrounded. Mobile browsers may pause GPS tracking.
           </div>
         )}
 
-        <div className="tracking-note">
-          Keep Teerific open during the field test so the browser can continue supplying GPS.
-        </div>
+        {!isNativeGolferLocation() && (
+          <div className="tracking-note">
+            Keep Teerific open so the browser can continue supplying GPS.
+          </div>
+        )}
 
         {error && (
           <div className="soft-error">
