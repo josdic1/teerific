@@ -629,8 +629,34 @@ h1 {
 
 .admin-actions {
   display: flex;
+  align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.admin-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-width: 0;
+  min-height: 42px;
+  margin-top: 0;
+  padding: 0 16px;
+  border-radius: 10px;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.admin-action-button:disabled {
+  cursor: default;
+  opacity: .5;
 }
 
 .admin-course-list {

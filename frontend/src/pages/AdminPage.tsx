@@ -46,6 +46,11 @@ export default function AdminPage() {
     null
   );
 
+  const [
+    signingOut,
+    setSigningOut
+  ] = useState(false);
+
   useEffect(
     () => {
       let cancelled =
@@ -109,6 +114,48 @@ export default function AdminPage() {
     []
   );
 
+  async function signOut() {
+    setSigningOut(true);
+    setError(null);
+
+    try {
+      const response =
+        await fetch(
+          `${API_BASE}/api/auth/logout`,
+          {
+            method:
+              "POST",
+
+            credentials:
+              "include"
+          }
+        );
+
+      if (
+        !response.ok &&
+        response.status !== 401
+      ) {
+        throw new Error(
+          "Could not sign out."
+        );
+      }
+
+      window.location.replace(
+        "/login"
+      );
+    } catch (
+      signOutError
+    ) {
+      setError(
+        signOutError instanceof Error
+          ? signOutError.message
+          : "Could not sign out."
+      );
+
+      setSigningOut(false);
+    }
+  }
+
   return (
     <main className="admin-page">
       <section className="admin-panel">
@@ -131,18 +178,31 @@ export default function AdminPage() {
 
           <div className="admin-actions">
             <Link
-              className="secondary-button"
+              className="secondary-button admin-action-button"
               to="/golf"
             >
-              Golf
+              Golfer view
             </Link>
 
             <Link
-              className="primary-button"
+              className="primary-button admin-action-button"
               to="/admin/field-course"
             >
               Map course
             </Link>
+
+            <button
+              type="button"
+              className="secondary-button admin-action-button"
+              disabled={signingOut}
+              onClick={() => {
+                void signOut();
+              }}
+            >
+              {signingOut
+                ? "Signing out…"
+                : "Sign out"}
+            </button>
           </div>
         </header>
 
