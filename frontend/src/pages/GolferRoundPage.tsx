@@ -24,6 +24,12 @@ import {
   watchGolferPosition,
 } from "../lib/golferGeolocation";
 
+import {
+  isNativeGolferLocation,
+  startNativeGolferLocation,
+  stopNativeGolferLocation,
+} from "../lib/nativeGolferLocation";
+
 
 type CurrentUser =
   AuthResponse["user"];
@@ -507,6 +513,51 @@ export default function GolferRoundPage() {
 
   useEffect(
     () => {
+      if (
+        !round ||
+        !user ||
+        !isNativeGolferLocation()
+      ) {
+        return;
+      }
+
+      setTracking(true);
+      setError(null);
+
+      void startNativeGolferLocation(
+        round.id,
+        API_BASE,
+      ).catch(
+        caught => {
+          setError(
+            caught instanceof Error
+              ? caught.message
+              : "NATIVE_GPS_START_FAILED",
+          );
+        },
+      );
+
+      return () => {
+        setTracking(false);
+
+        void stopNativeGolferLocation()
+          .catch(() => {});
+      };
+    },
+    [
+      round,
+      user,
+    ],
+  );
+
+  useEffect(
+    () => {
+      if (
+        isNativeGolferLocation()
+      ) {
+        return;
+      }
+
       if (
         !round ||
         !user ||
