@@ -18,7 +18,6 @@ import {
 
 import { API_BASE } from "../lib/api";
 
-
 type Step =
   | "phone"
   | "pin"
@@ -28,10 +27,7 @@ function formatUsPhoneInput(
   raw: string,
 ): string {
   let digits =
-    raw.replace(
-      /\D/g,
-      "",
-    );
+    raw.replace(/\D/g, "");
 
   if (
     digits.length > 10 &&
@@ -42,34 +38,34 @@ function formatUsPhoneInput(
   }
 
   digits =
-    digits.slice(
-      0,
-      10,
-    );
+    digits.slice(0, 10);
 
-  if (
-    digits.length <= 3
-  ) {
+  if (digits.length <= 3) {
     return digits;
   }
 
-  if (
-    digits.length <= 6
-  ) {
-    return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  if (digits.length <= 6) {
+    return `(${digits.slice(
+      0,
+      3,
+    )}) ${digits.slice(3)}`;
   }
 
-  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  return `(${digits.slice(
+    0,
+    3,
+  )}) ${digits.slice(
+    3,
+    6,
+  )}-${digits.slice(6)}`;
 }
 
 function hasCompleteUsPhone(
   raw: string,
 ): boolean {
   return (
-    raw.replace(
-      /\D/g,
-      "",
-    ).length === 10
+    raw.replace(/\D/g, "")
+      .length === 10
   );
 }
 
@@ -91,14 +87,9 @@ function normalizePhoneNumber(
   }
 
   const digits =
-    trimmed.replace(
-      /\D/g,
-      "",
-    );
+    trimmed.replace(/\D/g, "");
 
-  if (
-    digits.length === 10
-  ) {
+  if (digits.length === 10) {
     return `+1${digits}`;
   }
 
@@ -110,6 +101,15 @@ function normalizePhoneNumber(
   }
 
   return trimmed;
+}
+
+function phoneEnding(
+  raw: string,
+): string {
+  const digits =
+    raw.replace(/\D/g, "");
+
+  return digits.slice(-4);
 }
 
 async function readApiError(
@@ -125,9 +125,7 @@ async function readApiError(
       typeof body.error ===
       "string"
     ) {
-      switch (
-        body.error
-      ) {
+      switch (body.error) {
         case "INVALID_OR_EXPIRED_PIN":
           return "That code is invalid or expired.";
 
@@ -154,9 +152,7 @@ export default function LoginPage() {
   ] = useSearchParams();
 
   const rawNext =
-    searchParams.get(
-      "next",
-    );
+    searchParams.get("next");
 
   const next =
     rawNext &&
@@ -168,9 +164,7 @@ export default function LoginPage() {
   const [
     step,
     setStep,
-  ] = useState<Step>(
-    "phone",
-  );
+  ] = useState<Step>("phone");
 
   const [
     phone,
@@ -180,9 +174,9 @@ export default function LoginPage() {
   const [
     challengeId,
     setChallengeId,
-  ] = useState<
-    string | null
-  >(null);
+  ] = useState<string | null>(
+    null,
+  );
 
   const [
     code,
@@ -207,9 +201,9 @@ export default function LoginPage() {
   const [
     error,
     setError,
-  ] = useState<
-    string | null
-  >(null);
+  ] = useState<string | null>(
+    null,
+  );
 
   useEffect(
     () => {
@@ -234,9 +228,7 @@ export default function LoginPage() {
             return;
           }
 
-          if (
-            !response.ok
-          ) {
+          if (!response.ok) {
             throw new Error(
               await readApiError(
                 response,
@@ -249,9 +241,7 @@ export default function LoginPage() {
               await response.json(),
             );
 
-          if (
-            cancelled
-          ) {
+          if (cancelled) {
             return;
           }
 
@@ -260,9 +250,7 @@ export default function LoginPage() {
               .displayName ===
             null
           ) {
-            setStep(
-              "profile",
-            );
+            setStep("profile");
           } else {
             navigate(
               next,
@@ -272,12 +260,8 @@ export default function LoginPage() {
               },
             );
           }
-        } catch (
-          caught
-        ) {
-          if (
-            !cancelled
-          ) {
+        } catch (caught) {
+          if (!cancelled) {
             setError(
               caught instanceof Error
                 ? caught.message
@@ -285,9 +269,7 @@ export default function LoginPage() {
             );
           }
         } finally {
-          if (
-            !cancelled
-          ) {
+          if (!cancelled) {
             setCheckingSession(
               false,
             );
@@ -309,31 +291,24 @@ export default function LoginPage() {
   );
 
   async function requestPin() {
-    setWorking(
-      true,
-    );
-
-    setError(
-      null,
-    );
+    setWorking(true);
+    setError(null);
 
     try {
       const parsedInput =
-        RequestPhonePinInputSchema.safeParse({
-          phoneNumber:
-            normalizePhoneNumber(
-              phone,
-            ),
-        });
+        RequestPhonePinInputSchema
+          .safeParse({
+            phoneNumber:
+              normalizePhoneNumber(
+                phone,
+              ),
+          });
 
       if (!parsedInput.success) {
         throw new Error(
           "Enter a valid phone number, including area code.",
         );
       }
-
-      const input =
-        parsedInput.data;
 
       const response =
         await fetch(
@@ -352,14 +327,12 @@ export default function LoginPage() {
 
             body:
               JSON.stringify(
-                input,
+                parsedInput.data,
               ),
           },
         );
 
-      if (
-        !response.ok
-      ) {
+      if (!response.ok) {
         throw new Error(
           await readApiError(
             response,
@@ -368,58 +341,46 @@ export default function LoginPage() {
       }
 
       const result =
-        RequestPhonePinResponseSchema.parse(
-          await response.json(),
-        );
+        RequestPhonePinResponseSchema
+          .parse(
+            await response.json(),
+          );
 
       setChallengeId(
         result.challengeId,
       );
 
-      setStep(
-        "pin",
-      );
-    } catch (
-      caught
-    ) {
+      setCode("");
+      setStep("pin");
+    } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
           : "Unable to send code.",
       );
     } finally {
-      setWorking(
-        false,
-      );
+      setWorking(false);
     }
   }
 
   async function verifyPin() {
-    if (
-      !challengeId
-    ) {
+    if (!challengeId) {
       setError(
         "PIN challenge is missing.",
       );
-
       return;
     }
 
-    setWorking(
-      true,
-    );
-
-    setError(
-      null,
-    );
+    setWorking(true);
+    setError(null);
 
     try {
       const input =
-        VerifyPhonePinInputSchema.parse({
-          challengeId,
-
-          code,
-        });
+        VerifyPhonePinInputSchema
+          .parse({
+            challengeId,
+            code,
+          });
 
       const response =
         await fetch(
@@ -443,9 +404,7 @@ export default function LoginPage() {
           },
         );
 
-      if (
-        !response.ok
-      ) {
+      if (!response.ok) {
         throw new Error(
           await readApiError(
             response,
@@ -463,10 +422,7 @@ export default function LoginPage() {
           .displayName ===
         null
       ) {
-        setStep(
-          "profile",
-        );
-
+        setStep("profile");
         return;
       }
 
@@ -477,35 +433,27 @@ export default function LoginPage() {
             true,
         },
       );
-    } catch (
-      caught
-    ) {
+    } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
           : "Unable to verify code.",
       );
     } finally {
-      setWorking(
-        false,
-      );
+      setWorking(false);
     }
   }
 
   async function saveProfile() {
-    setWorking(
-      true,
-    );
-
-    setError(
-      null,
-    );
+    setWorking(true);
+    setError(null);
 
     try {
       const input =
-        UpdateAccountInputSchema.parse({
-          displayName,
-        });
+        UpdateAccountInputSchema
+          .parse({
+            displayName,
+          });
 
       const response =
         await fetch(
@@ -529,9 +477,7 @@ export default function LoginPage() {
           },
         );
 
-      if (
-        !response.ok
-      ) {
+      if (!response.ok) {
         throw new Error(
           await readApiError(
             response,
@@ -550,82 +496,72 @@ export default function LoginPage() {
             true,
         },
       );
-    } catch (
-      caught
-    ) {
+    } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
           : "Unable to save profile.",
       );
     } finally {
-      setWorking(
-        false,
-      );
+      setWorking(false);
     }
   }
 
-  if (
-    checkingSession
-  ) {
+  if (checkingSession) {
     return (
-      <main className="auth-page">
-        <section className="auth-card">
+      <main className="auth-page auth-premium-page">
+        <section className="auth-premium-shell">
           <div className="brand">
             TEERIFIC
           </div>
 
-          <p className="muted">
+          <div className="auth-loading">
             Checking session…
-          </p>
+          </div>
         </section>
       </main>
     );
   }
 
   return (
-    <main className="auth-page">
-      <section className="auth-card">
+    <main className="auth-page auth-premium-page">
+      <section className="auth-premium-shell">
         <div className="brand">
           TEERIFIC
         </div>
 
-        {step ===
-          "phone" && (
-          <>
-            <div className="golf-hero">
-              <div className="eyebrow">
-                SIGN IN
-              </div>
-
+        {step === "phone" && (
+          <div className="auth-stage">
+            <header className="auth-premium-hero">
               <h1>
-                Your phone
+                What’s your number?
               </h1>
 
-              <p className="muted">
-                We’ll send you a 6-digit sign-in code.
+              <p>
+                We’ll send a 6-digit
+                sign-in code.
               </p>
-            </div>
+            </header>
 
             <form
-              className="auth-form"
+              className="auth-premium-form"
               onSubmit={event => {
                 event.preventDefault();
                 void requestPin();
               }}
             >
-              <label className="auth-field">
+              <label className="auth-minimal-field">
                 <span>
-                  US mobile number
+                  Mobile
                 </span>
 
                 <input
-                  className="auth-phone-input"
+                  className="auth-premium-phone"
                   type="tel"
                   autoComplete="tel"
                   inputMode="numeric"
                   maxLength={14}
-                  placeholder="(973) 555-0123"
+                  placeholder="(973) 271-9511"
                   value={phone}
                   onChange={event => {
                     setPhone(
@@ -635,15 +571,11 @@ export default function LoginPage() {
                     );
                   }}
                 />
-
-                <small className="auth-hint">
-                  Enter all 10 digits. +1 is added automatically.
-                </small>
               </label>
 
               <button
                 type="submit"
-                className="primary-button"
+                className="auth-premium-submit"
                 disabled={
                   working ||
                   !hasCompleteUsPhone(
@@ -653,52 +585,48 @@ export default function LoginPage() {
               >
                 {working
                   ? "Sending…"
-                  : "Send code"}
+                  : "Continue"}
               </button>
             </form>
-          </>
+          </div>
         )}
 
-        {step ===
-          "pin" && (
-          <>
-            <div className="golf-hero">
-              <div className="eyebrow">
-                VERIFY
-              </div>
-
+        {step === "pin" && (
+          <div className="auth-stage">
+            <header className="auth-premium-hero">
               <h1>
-                Enter code
+                Enter your code
               </h1>
 
-              <p className="muted">
-                Enter the 6-digit code sent to your phone.
+              <p>
+                Sent to ••• •••{" "}
+                {phoneEnding(phone)}
               </p>
-            </div>
+            </header>
 
             <form
-              className="auth-form"
+              className="auth-premium-form"
               onSubmit={event => {
                 event.preventDefault();
                 void verifyPin();
               }}
             >
-              <label className="auth-field">
+              <label className="auth-minimal-field auth-pin-field">
                 <span>
-                  Code
+                  6-digit code
                 </span>
 
                 <input
-                  className="auth-code-input"
+                  className="auth-premium-code"
                   type="text"
                   inputMode="numeric"
                   autoComplete="one-time-code"
                   maxLength={6}
+                  placeholder="••••••"
                   value={code}
                   onChange={event => {
                     setCode(
-                      event.target
-                        .value
+                      event.target.value
                         .replace(
                           /\D/g,
                           "",
@@ -714,7 +642,7 @@ export default function LoginPage() {
 
               <button
                 type="submit"
-                className="primary-button"
+                className="auth-premium-submit"
                 disabled={
                   working ||
                   code.length !== 6
@@ -727,66 +655,54 @@ export default function LoginPage() {
 
               <button
                 type="button"
-                className="secondary-button"
-                disabled={
-                  working
-                }
+                className="auth-text-action"
+                disabled={working}
                 onClick={() => {
-                  setStep(
-                    "phone",
-                  );
-
+                  setStep("phone");
                   setCode("");
                   setChallengeId(
                     null,
                   );
-                  setError(
-                    null,
-                  );
+                  setError(null);
                 }}
               >
-                Use another number
+                Change number
               </button>
             </form>
-          </>
+          </div>
         )}
 
-        {step ===
-          "profile" && (
-          <>
-            <div className="golf-hero">
-              <div className="eyebrow">
-                PROFILE
-              </div>
-
+        {step === "profile" && (
+          <div className="auth-stage">
+            <header className="auth-premium-hero">
               <h1>
                 What should we call you?
               </h1>
 
-              <p className="muted">
-                This is the name your Clubhouse will see.
+              <p>
+                This is the name your
+                Clubhouse will see.
               </p>
-            </div>
+            </header>
 
             <form
-              className="auth-form"
+              className="auth-premium-form"
               onSubmit={event => {
                 event.preventDefault();
                 void saveProfile();
               }}
             >
-              <label className="auth-field">
+              <label className="auth-minimal-field">
                 <span>
                   Display name
                 </span>
 
                 <input
+                  className="auth-premium-name"
                   type="text"
                   autoComplete="name"
                   maxLength={100}
-                  value={
-                    displayName
-                  }
+                  value={displayName}
                   onChange={event => {
                     setDisplayName(
                       event.target.value,
@@ -797,7 +713,7 @@ export default function LoginPage() {
 
               <button
                 type="submit"
-                className="primary-button"
+                className="auth-premium-submit"
                 disabled={
                   working ||
                   !displayName.trim()
@@ -808,11 +724,11 @@ export default function LoginPage() {
                   : "Continue"}
               </button>
             </form>
-          </>
+          </div>
         )}
 
         {error && (
-          <div className="soft-error">
+          <div className="auth-premium-error">
             {error}
           </div>
         )}
