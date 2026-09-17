@@ -375,7 +375,7 @@ export async function recordLocationSample(
     prior !== undefined &&
     prior.detected_hole_id ===
       detectedHoleId &&
-    currentRecordedAt >=
+    currentRecordedAt >
       prior.recorded_at
   ) {
     await applyConfirmedHoleTransition(
