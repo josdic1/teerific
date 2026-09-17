@@ -17,6 +17,7 @@ export const CourseDetectionMethodSchema =
 export const RoundEndReasonSchema =
   z.enum([
     "completed",
+    "finished",
     "abandoned"
   ]);
 

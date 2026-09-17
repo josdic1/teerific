@@ -301,6 +301,78 @@ export async function endRound(
     };
   }
 
+  /*
+   * "completed" is a fact, not a button choice.
+   *
+   * Any normal user finish is resolved from canonical
+   * HoleVisit data. A round is completed only when every
+   * hole belonging to the course has been visited.
+   *
+   * This also protects us from stale clients that still
+   * submit "completed" directly.
+   */
+  let resolvedReason:
+    EndReason =
+    reason;
+
+  if (
+    reason !== "abandoned"
+  ) {
+    const completion =
+      await db.query<{
+        total_holes: string;
+        visited_holes: string;
+      }>(
+        `
+          SELECT
+            (
+              SELECT COUNT(*)::text
+
+              FROM holes
+
+              WHERE course_id = $1
+            ) AS total_holes,
+
+            (
+              SELECT COUNT(
+                DISTINCT hole_id
+              )::text
+
+              FROM hole_visits
+
+              WHERE round_id = $2
+            ) AS visited_holes
+        `,
+        [
+          existing.course_id,
+          roundId
+        ]
+      );
+
+    const completionRow =
+      completion.rows[0];
+
+    const totalHoles =
+      Number(
+        completionRow
+          ?.total_holes ??
+          0
+      );
+
+    const visitedHoles =
+      Number(
+        completionRow
+          ?.visited_holes ??
+          0
+      );
+
+    resolvedReason =
+      totalHoles > 0 &&
+      visitedHoles >= totalHoles
+        ? "completed"
+        : "finished";
+  }
+
   const updated =
     await db.query<RoundRow>(
       `
@@ -321,7 +393,7 @@ export async function endRound(
       [
         roundId,
         golferUserId,
-        reason
+        resolvedReason
       ]
     );
 

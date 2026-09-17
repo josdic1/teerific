@@ -832,6 +832,7 @@ export default function GolferRoundPage() {
   async function endRound(
     reason:
       | "completed"
+      | "finished"
       | "abandoned",
   ) {
     if (
@@ -1169,7 +1170,7 @@ export default function GolferRoundPage() {
             }
             onClick={() => {
               void endRound(
-                "completed",
+                "finished",
               );
             }}
           >
