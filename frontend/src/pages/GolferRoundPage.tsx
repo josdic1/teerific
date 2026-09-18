@@ -1285,6 +1285,13 @@ export default function GolferRoundPage() {
                 OFF COURSE
               </div>
 
+              <Link
+                to="/partners"
+                className="signout-button"
+              >
+                Partner
+              </Link>
+
               <button
                 type="button"
                 className="signout-button"

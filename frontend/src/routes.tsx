@@ -10,6 +10,7 @@ import FieldCourseMapperPage from "./pages/FieldCourseMapperPage";
 import GolferRoundPage from "./pages/GolferRoundPage";
 import GolferStatusPage from "./pages/GolferStatusPage";
 import LoginPage from "./pages/LoginPage";
+import PartnersPage from "./pages/PartnersPage";
 
 export default function AppRoutes() {
   return (
@@ -42,6 +43,13 @@ export default function AppRoutes() {
         path="/golf"
         element={
           <GolferRoundPage />
+        }
+      />
+
+      <Route
+        path="/partners"
+        element={
+          <PartnersPage />
         }
       />
 

@@ -292,7 +292,8 @@ export default function GolferStatusPage() {
         },
       );
 
-    stream.onmessage =
+    stream.addEventListener(
+      "state",
       event => {
         try {
           const state =
@@ -327,7 +328,8 @@ export default function GolferStatusPage() {
           // Ignore malformed stream events.
           // Canonical REST refresh remains authoritative.
         }
-      };
+      },
+    );
 
     stream.addEventListener(
       "access-revoked",

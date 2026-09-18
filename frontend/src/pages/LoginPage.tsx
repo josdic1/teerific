@@ -69,7 +69,7 @@ function hasCompleteUsPhone(
   );
 }
 
-function normalizePhoneNumber(
+export function normalizePhoneNumber(
   raw: string,
 ): string {
   const trimmed =
