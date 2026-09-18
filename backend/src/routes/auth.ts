@@ -11,9 +11,14 @@ import {
   userSnapshot
 } from "../audit/audit.js";
 import {
-  issuePhonePin,
-  verifyPhonePin
+  consumeVerifiedPhonePin,
+  findPhonePinChallenge,
+  issuePhonePin
 } from "../auth/phonePin.js";
+import {
+  sendPhonePinSms,
+  verifyPhonePinSms
+} from "../auth/sms.js";
 import {
   clearSessionCookie,
   createSessionToken,
@@ -110,6 +115,10 @@ authRouter.post(
         }
       );
 
+    await sendPhonePinSms(
+      parsed.data.phoneNumber
+    );
+
     response.status(201).json(
       RequestPhonePinResponseSchema.parse({
         challengeId:
@@ -142,6 +151,33 @@ authRouter.post(
       return;
     }
 
+    const phoneNumber =
+      await findPhonePinChallenge(
+        parsed.data.challengeId
+      );
+
+    if (!phoneNumber) {
+      response.status(401).json({
+        error:
+          "INVALID_OR_EXPIRED_PIN"
+      });
+      return;
+    }
+
+    const approved =
+      await verifyPhonePinSms(
+        phoneNumber,
+        parsed.data.code
+      );
+
+    if (!approved) {
+      response.status(401).json({
+        error:
+          "INVALID_OR_EXPIRED_PIN"
+      });
+      return;
+    }
+
     const token =
       createSessionToken();
 
@@ -151,20 +187,20 @@ authRouter.post(
     const result =
       await withTransaction(
         async (client) => {
-          const phoneNumber =
-            await verifyPhonePin(
+          const consumedPhoneNumber =
+            await consumeVerifiedPhonePin(
               parsed.data.challengeId,
-              parsed.data.code,
+              phoneNumber,
               client
             );
 
-          if (!phoneNumber) {
+          if (!consumedPhoneNumber) {
             return null;
           }
 
           const user =
             await findOrCreateVerifiedUserByPhone(
-              phoneNumber,
+              consumedPhoneNumber,
               client
             );
 

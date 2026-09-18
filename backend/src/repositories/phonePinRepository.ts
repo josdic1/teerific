@@ -6,7 +6,7 @@ import type {
 type PinChallengeRow = {
   id: string;
   phone_number: string;
-  code_hash: string;
+  code_hash: string | null;
   attempts_remaining: number;
   expires_at: Date;
   consumed_at: Date | null;
@@ -15,7 +15,7 @@ type PinChallengeRow = {
 export async function createPhonePinChallenge(
   id: string,
   phoneNumber: string,
-  codeHash: string,
+  codeHash: string | null,
   expiresAt: Date,
   db: DbExecutor = pool
 ): Promise<void> {
@@ -38,9 +38,42 @@ export async function createPhonePinChallenge(
   );
 }
 
-export async function consumePhonePinChallenge(
+export async function findPendingPhonePinChallenge(
   id: string,
-  expectedHash: string,
+  db: DbExecutor = pool
+): Promise<string | null> {
+  const result =
+    await db.query<PinChallengeRow>(
+      `
+        SELECT
+          id,
+          phone_number,
+          code_hash,
+          attempts_remaining,
+          expires_at,
+          consumed_at
+        FROM phone_pin_challenges
+        WHERE id = $1
+      `,
+      [id]
+    );
+
+  const challenge = result.rows[0];
+
+  if (
+    !challenge ||
+    challenge.consumed_at !== null ||
+    challenge.expires_at <= new Date()
+  ) {
+    return null;
+  }
+
+  return challenge.phone_number;
+}
+
+export async function consumeApprovedPhonePinChallenge(
+  id: string,
+  phoneNumber: string,
   db: DbExecutor
 ): Promise<string | null> {
   const result =
@@ -53,45 +86,21 @@ export async function consumePhonePinChallenge(
           attempts_remaining,
           expires_at,
           consumed_at
-
         FROM phone_pin_challenges
-
         WHERE id = $1
-
         FOR UPDATE
       `,
       [id]
     );
 
-  const challenge =
-    result.rows[0];
+  const challenge = result.rows[0];
 
   if (
     !challenge ||
+    challenge.phone_number !== phoneNumber ||
     challenge.consumed_at !== null ||
-    challenge.expires_at <= new Date() ||
-    challenge.attempts_remaining <= 0
+    challenge.expires_at <= new Date()
   ) {
-    return null;
-  }
-
-  if (
-    challenge.code_hash !==
-    expectedHash
-  ) {
-    await db.query(
-      `
-        UPDATE phone_pin_challenges
-        SET attempts_remaining =
-          GREATEST(
-            attempts_remaining - 1,
-            0
-          )
-        WHERE id = $1
-      `,
-      [id]
-    );
-
     return null;
   }
 
