@@ -13,11 +13,15 @@ app.set(
     : "loopback"
 );
 
+const allowedOrigins = [
+  process.env.FRONTEND_ORIGIN ??
+    "http://localhost:5173",
+  "capacitor://localhost"
+];
+
 app.use(
   cors({
-    origin:
-      process.env.FRONTEND_ORIGIN ??
-      "http://localhost:5173",
+    origin: allowedOrigins,
     credentials: true
   })
 );

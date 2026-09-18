@@ -361,6 +361,54 @@ h1 {
   width: 100%;
 }
 
+.course-library-hero {
+  padding-bottom: 20px;
+}
+
+.course-library {
+  display: grid;
+  gap: 10px;
+}
+
+.course-library-item {
+  width: 100%;
+  padding: 16px 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.course-library-item strong {
+  display: block;
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.course-library-item span {
+  display: block;
+  margin-top: 4px;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.course-library-item-selected {
+  padding-left: 14px;
+  border-left: 3px solid var(--ink);
+}
+
+.course-confirmation {
+  margin-top: 20px;
+}
+
+.course-confirmation > strong {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
 .golf-stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -383,6 +431,28 @@ h1 {
 
 .golf-stats .detail strong {
   font-size: 15px;
+}
+
+.hole-timeline {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.hole-timeline-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 0;
+  font-size: 14px;
+}
+
+.hole-timeline-row span {
+  color: var(--ink-soft);
+}
+
+.hole-timeline-row strong {
+  color: var(--ink);
+  font-weight: 650;
 }
 
 .tracking-note {

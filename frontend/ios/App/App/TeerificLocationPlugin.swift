@@ -39,6 +39,10 @@ public class TeerificLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationMana
         locationManager.requestAlwaysAuthorization()
         locationManager.startUpdatingLocation()
 
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            self.locationManager.requestLocation()
+        }
+
         call.resolve()
     }
 
@@ -55,6 +59,14 @@ public class TeerificLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationMana
     ) {
         guard let location = locations.last else { return }
         upload(location)
+    }
+
+
+    public func locationManager(
+        _ manager: CLLocationManager,
+        didFailWithError error: Error
+    ) {
+        print("TEERIFIC GPS LOCATION ERROR:", error.localizedDescription)
     }
 
     private func upload(_ location: CLLocation) {
@@ -93,15 +105,33 @@ public class TeerificLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationMana
             "application/json",
             forHTTPHeaderField: "Content-Type"
         )
+        let jsonBody: [String: Any] = body.mapValues {
+            $0 ?? NSNull()
+        }
+
         request.httpBody = try? JSONSerialization.data(
-            withJSONObject: body.compactMapValues { $0 }
+            withJSONObject: jsonBody
         )
 
         let configuration = URLSessionConfiguration.default
         configuration.httpCookieStorage = HTTPCookieStorage.shared
 
         URLSession(configuration: configuration)
-            .dataTask(with: request)
+            .dataTask(with: request) { data, response, error in
+                if let error {
+                    print("TEERIFIC GPS UPLOAD ERROR:", error)
+                    return
+                }
+
+                let status =
+                    (response as? HTTPURLResponse)?.statusCode ?? -1
+
+                if !(200...299).contains(status),
+                   let data,
+                   let body = String(data: data, encoding: .utf8) {
+                    print("TEERIFIC GPS UPLOAD BODY:", body)
+                }
+            }
             .resume()
     }
 }

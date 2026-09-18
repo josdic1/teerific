@@ -9,9 +9,14 @@ import {
 
 import {
   AuthResponseSchema,
+  CourseDetectionResultSchema,
+  CourseSchema,
+  HoleSchema,
+  HoleVisitSchema,
   LiveGolferStateSchema,
   RoundSchema,
   type AuthResponse,
+  type Course,
   type LiveGolferState,
   type LocationUpdateInput,
   type Round,
@@ -33,6 +38,12 @@ import {
 
 type CurrentUser =
   AuthResponse["user"];
+
+type CourseHole =
+  ReturnType<typeof HoleSchema.parse>;
+
+type HoleVisit =
+  ReturnType<typeof HoleVisitSchema.parse>;
 
 function formatTime(
   value:
@@ -201,6 +212,39 @@ export default function GolferRoundPage() {
   );
 
   const [
+    courses,
+    setCourses,
+  ] = useState<Course[]>([]);
+
+  const [
+    selectedCourseId,
+    setSelectedCourseId,
+  ] = useState<string | null>(
+    null,
+  );
+
+  const [
+    confirmedCourseId,
+    setConfirmedCourseId,
+  ] = useState<string | null>(
+    null,
+  );
+
+  const [
+    confirmingCourse,
+    setConfirmingCourse,
+  ] = useState(
+    false,
+  );
+
+  const [
+    courseConfirmationMessage,
+    setCourseConfirmationMessage,
+  ] = useState<string | null>(
+    null,
+  );
+
+  const [
     liveState,
     setLiveState,
   ] = useState<
@@ -208,6 +252,16 @@ export default function GolferRoundPage() {
   >(
     null,
   );
+
+  const [
+    holes,
+    setHoles,
+  ] = useState<CourseHole[]>([]);
+
+  const [
+    holeVisits,
+    setHoleVisits,
+  ] = useState<HoleVisit[]>([]);
 
   const [
     loading,
@@ -380,6 +434,82 @@ export default function GolferRoundPage() {
 
   useEffect(
     () => {
+      if (
+        !user ||
+        round
+      ) {
+        return;
+      }
+
+      let cancelled =
+        false;
+
+      async function loadCourses() {
+        try {
+          const response =
+            await fetch(
+              `${API_BASE}/api/courses`,
+              {
+                credentials:
+                  "include",
+              },
+            );
+
+          if (!response.ok) {
+            throw new Error(
+              await readApiError(
+                response,
+              ),
+            );
+          }
+
+          const payload =
+            await response.json() as {
+              courses:
+                unknown[];
+            };
+
+          const parsed =
+            payload.courses.map(
+              course =>
+                CourseSchema.parse(
+                  course,
+                ),
+            );
+
+          if (!cancelled) {
+            setCourses(
+              parsed,
+            );
+          }
+        } catch (
+          caught
+        ) {
+          if (!cancelled) {
+            setError(
+              caught instanceof Error
+                ? caught.message
+                : "COURSE_LIBRARY_FAILED",
+            );
+          }
+        }
+      }
+
+      void loadCourses();
+
+      return () => {
+        cancelled =
+          true;
+      };
+    },
+    [
+      user,
+      round,
+    ],
+  );
+
+  useEffect(
+    () => {
       function updateVisibility() {
         setPageVisible(
           !document.hidden,
@@ -403,112 +533,43 @@ export default function GolferRoundPage() {
 
   useEffect(
     () => {
-      if (
-        !user
-      ) {
+      if (!user) {
         return;
       }
 
-      let cancelled =
-        false;
+      let cancelled = false;
 
-      async function loadInitialState() {
+      async function refreshState() {
         try {
-          const response =
-            await fetch(
-              `${API_BASE}/api/golfers/${encodeURIComponent(
-                user!.id,
-              )}/live-state`,
-              {
-                credentials:
-                  "include",
-              },
+          const state =
+            await fetchLiveGolferState(
+              user!.id,
             );
 
-          if (
-            !response.ok
-          ) {
-            return;
-          }
-
-          const payload =
-            await response
-              .json() as {
-                state:
-                  unknown;
-              };
-
-          const parsed =
-            LiveGolferStateSchema
-              .parse(
-                payload.state,
-              );
-
-          if (
-            !cancelled
-          ) {
-            setLiveState(
-              parsed,
-            );
+          if (!cancelled) {
+            setLiveState(state);
           }
         } catch {
-          // SSE below remains canonical.
+          // Try again on next refresh.
         }
       }
 
-      void loadInitialState();
+      void refreshState();
 
-      const stream =
-        new EventSource(
-          `${API_BASE}/api/golfers/${encodeURIComponent(
-            user.id,
-          )}/live-stream`,
-          {
-            withCredentials:
-              true,
+      const timer =
+        window.setInterval(
+          () => {
+            void refreshState();
           },
+          2000,
         );
 
-      stream.onmessage =
-        event => {
-          try {
-            const parsed =
-              LiveGolferStateSchema
-                .parse(
-                  JSON.parse(
-                    event.data,
-                  ),
-                );
-
-            setLiveState(
-              parsed,
-            );
-          } catch {
-            // Ignore malformed SSE.
-          }
-        };
-
-      stream.addEventListener(
-        "access-revoked",
-        () => {
-          setError(
-            "GOLFER_ACCESS_REVOKED",
-          );
-
-          stream.close();
-        },
-      );
-
       return () => {
-        cancelled =
-          true;
-
-        stream.close();
+        cancelled = true;
+        window.clearInterval(timer);
       };
     },
-    [
-      user,
-    ],
+    [user],
   );
 
   useEffect(
@@ -705,6 +766,98 @@ export default function GolferRoundPage() {
     ],
   );
 
+  useEffect(
+    () => {
+      if (!round) {
+        setHoles([]);
+        setHoleVisits([]);
+        return;
+      }
+
+      let cancelled =
+        false;
+
+      async function loadRoundProgress() {
+        try {
+          const [
+            holesResponse,
+            visitsResponse,
+          ] =
+            await Promise.all([
+              fetch(
+                `${API_BASE}/api/courses/${encodeURIComponent(
+                  round!.courseId,
+                )}/holes`,
+                {
+                  credentials:
+                    "include",
+                },
+              ),
+              fetch(
+                `${API_BASE}/api/rounds/${encodeURIComponent(
+                  round!.id,
+                )}/hole-visits`,
+                {
+                  credentials:
+                    "include",
+                },
+              ),
+            ]);
+
+          if (
+            !holesResponse.ok ||
+            !visitsResponse.ok
+          ) {
+            return;
+          }
+
+          const holesPayload =
+            await holesResponse.json() as {
+              holes:
+                unknown[];
+            };
+
+          const visitsPayload =
+            await visitsResponse.json() as {
+              visits:
+                unknown[];
+            };
+
+          if (cancelled) {
+            return;
+          }
+
+          setHoles(
+            holesPayload.holes.map(
+              hole =>
+                HoleSchema.parse(hole),
+            ),
+          );
+
+          setHoleVisits(
+            visitsPayload.visits.map(
+              visit =>
+                HoleVisitSchema.parse(visit),
+            ),
+          );
+        } catch {
+          // Live round tracking remains independent.
+        }
+      }
+
+      void loadRoundProgress();
+
+      return () => {
+        cancelled =
+          true;
+      };
+    },
+    [
+      round,
+      liveState?.currentHole?.holeNumber,
+    ],
+  );
+
   async function signOut() {
     setWorking(
       true,
@@ -768,9 +921,117 @@ export default function GolferRoundPage() {
     }
   }
 
-  async function startRound() {
+  async function chooseCourse(
+    courseId: string,
+  ) {
+    setSelectedCourseId(
+      courseId,
+    );
+
+    setConfirmedCourseId(
+      null,
+    );
+
+    setCourseConfirmationMessage(
+      null,
+    );
+
+    setConfirmingCourse(
+      true,
+    );
+
+    setError(
+      null,
+    );
+
+    try {
+      const location =
+        await getGolferCurrentPosition();
+
+      const response =
+        await fetch(
+          `${API_BASE}/api/courses/detect`,
+          {
+            method:
+              "POST",
+
+            credentials:
+              "include",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                latitude:
+                  location.latitude,
+
+                longitude:
+                  location.longitude,
+              }),
+          },
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          await readApiError(
+            response,
+          ),
+        );
+      }
+
+      const payload =
+        await response.json() as {
+          detection:
+            unknown;
+        };
+
+      const detection =
+        CourseDetectionResultSchema.parse(
+          payload.detection,
+        );
+
+      if (
+        detection.status ===
+          "matched" &&
+        detection.course?.id ===
+          courseId
+      ) {
+        setConfirmedCourseId(
+          courseId,
+        );
+
+        setCourseConfirmationMessage(
+          "Location confirmed",
+        );
+
+        return;
+      }
+
+      setCourseConfirmationMessage(
+        "You are not currently at this course.",
+      );
+    } catch (
+      caught
+    ) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "COURSE_LOCATION_CHECK_FAILED",
+      );
+    } finally {
+      setConfirmingCourse(
+        false,
+      );
+    }
+  }
+
+  async function startSelectedCourseRound() {
     if (
-      !user
+      !user ||
+      !confirmedCourseId
     ) {
       return;
     }
@@ -805,20 +1066,15 @@ export default function GolferRoundPage() {
             body:
               JSON.stringify({
                 courseDetectionMethod:
-                  "automatic",
+                  "manual",
 
-                latitude:
-                  location.latitude,
-
-                longitude:
-                  location.longitude,
+                courseId:
+                  confirmedCourseId,
               }),
           },
         );
 
-      if (
-        !response.ok
-      ) {
+      if (!response.ok) {
         throw new Error(
           await readApiError(
             response,
@@ -827,11 +1083,10 @@ export default function GolferRoundPage() {
       }
 
       const payload =
-        await response
-          .json() as {
-            round:
-              unknown;
-          };
+        await response.json() as {
+          round:
+            unknown;
+        };
 
       const createdRound =
         RoundSchema.parse(
@@ -842,29 +1097,19 @@ export default function GolferRoundPage() {
         createdRound,
       );
 
-      try {
-        await postLocationSample(
-          createdRound.id,
-          location,
+      await postLocationSample(
+        createdRound.id,
+        location,
+      );
+
+      const nextState =
+        await fetchLiveGolferState(
+          user.id,
         );
 
-        const nextState =
-          await fetchLiveGolferState(
-            user.id,
-          );
-
-        setLiveState(
-          nextState,
-        );
-      } catch (
-        caught
-      ) {
-        setError(
-          caught instanceof Error
-            ? caught.message
-            : "INITIAL_GPS_UPLOAD_FAILED",
-        );
-      }
+      setLiveState(
+        nextState,
+      );
     } catch (
       caught
     ) {
@@ -879,6 +1124,7 @@ export default function GolferRoundPage() {
       );
     }
   }
+
 
   async function endRound(
     reason:
@@ -1052,35 +1298,81 @@ export default function GolferRoundPage() {
             </div>
           </header>
 
-          <div className="golf-hero">
+          <div className="golf-hero course-library-hero">
             <div className="eyebrow">
-              READY TO PLAY
+              CHOOSE YOUR COURSE
             </div>
 
             <h1>
-              {user.displayName ??
-                "Golfer"}
+              Where are you playing?
             </h1>
-
-            <p className="muted">
-              Teerific will use your current GPS location to identify the course automatically.
-            </p>
           </div>
 
-          <button
-            type="button"
-            className="primary-button golf-start-button"
-            disabled={
-              working
-            }
-            onClick={() => {
-              void startRound();
-            }}
-          >
-            {working
-              ? "Finding course…"
-              : "Start round"}
-          </button>
+          <div className="course-library">
+            {courses.length === 0 ? (
+              <p className="muted">
+                No courses available.
+              </p>
+            ) : (
+              courses.map(
+                course => (
+                  <button
+                    key={course.id}
+                    type="button"
+                    className={
+                      selectedCourseId ===
+                      course.id
+                        ? "course-library-item course-library-item-selected"
+                        : "course-library-item"
+                    }
+                    disabled={
+                      confirmingCourse ||
+                      working
+                    }
+                    onClick={() => {
+                      void chooseCourse(
+                        course.id,
+                      );
+                    }}
+                  >
+                    <strong>
+                      {course.name}
+                    </strong>
+
+                    <span>
+                      {course.city}, {course.region}
+                    </span>
+                  </button>
+                ),
+              )
+            )}
+          </div>
+
+          {selectedCourseId && (
+            <div className="course-confirmation">
+              <strong>
+                {confirmingCourse
+                  ? "Checking your location…"
+                  : courseConfirmationMessage}
+              </strong>
+
+              {confirmedCourseId ===
+                selectedCourseId && (
+                <button
+                  type="button"
+                  className="primary-button golf-start-button"
+                  disabled={working}
+                  onClick={() => {
+                    void startSelectedCourseRound();
+                  }}
+                >
+                  {working
+                    ? "Starting round…"
+                    : "Start Round"}
+                </button>
+              )}
+            </div>
+          )}
 
           {error && (
             <div className="soft-error">
@@ -1195,6 +1487,40 @@ export default function GolferRoundPage() {
             </strong>
           </div>
         </div>
+
+        {holeVisits.length > 0 && (
+          <div className="hole-timeline">
+            {holeVisits.map(
+              visit => {
+                const hole =
+                  holes.find(
+                    candidate =>
+                      candidate.id ===
+                      visit.holeId,
+                  );
+
+                return (
+                  <div
+                    key={visit.id}
+                    className="hole-timeline-row"
+                  >
+                    <span>
+                      {hole
+                        ? `Hole ${hole.holeNumber}`
+                        : "Hole"}
+                    </span>
+
+                    <strong>
+                      {formatTime(
+                        visit.enteredAt,
+                      )}
+                    </strong>
+                  </div>
+                );
+              },
+            )}
+          </div>
+        )}
 
         {!isNativeGolferLocation() && !pageVisible && (
           <div className="tracking-warning">
