@@ -404,7 +404,6 @@ authRouter.patch(
            * than duplicated.
            */
           if (
-            !user.isAdmin &&
             user.displayName !== null
           ) {
             const ensured =
