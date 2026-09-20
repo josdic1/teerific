@@ -1,4 +1,5 @@
 import AdminPage from "./pages/AdminPage";
+import AdminLoginPage from "./pages/AdminLoginPage";
 import AdminCoursePage from "./pages/AdminCoursePage";
 import {
   Navigate,
@@ -19,7 +20,7 @@ export default function AppRoutes() {
         path="/"
         element={
           <Navigate
-            to="/golf"
+            to="/login"
             replace
           />
         }
@@ -29,6 +30,13 @@ export default function AppRoutes() {
         path="/login"
         element={
           <LoginPage />
+        }
+      />
+
+      <Route
+        path="/admin/login"
+        element={
+          <AdminLoginPage />
         }
       />
 

@@ -1270,6 +1270,35 @@ export default function GolferRoundPage() {
   }
 
   if (
+    user.userType !== "member"
+  ) {
+    return (
+      <main className="golf-page">
+        <section className="golf-card">
+          <div className="brand">
+            TEERIFIC
+          </div>
+
+          <h1>
+            Partner account
+          </h1>
+
+          <p className="muted">
+            This account follows a golfer rather than starting rounds.
+          </p>
+
+          <Link
+            to="/partners"
+            className="primary-button"
+          >
+            View golfer
+          </Link>
+        </section>
+      </main>
+    );
+  }
+
+  if (
     !round
   ) {
     return (

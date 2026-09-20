@@ -9,6 +9,7 @@ import {
   AuthResponseSchema,
   ClubhouseSchema,
   type Clubhouse,
+  type CurrentUser,
 } from "@teerific/shared";
 
 import { API_BASE } from "../lib/api";
@@ -17,8 +18,12 @@ import {
 } from "./LoginPage";
 
 export default function PartnersPage() {
+  const [user, setUser] =
+    useState<CurrentUser | null>(null);
   const [clubhouse, setClubhouse] =
     useState<Clubhouse | null>(null);
+  const [followedClubhouses, setFollowedClubhouses] =
+    useState<Clubhouse[]>([]);
   const [phoneNumber, setPhoneNumber] =
     useState("");
   const [loading, setLoading] =
@@ -37,7 +42,7 @@ export default function PartnersPage() {
       });
 
     if (!authResponse.ok) {
-      throw new Error("Sign in to manage partners.");
+      throw new Error("Sign in to continue.");
     }
 
     const auth =
@@ -45,13 +50,15 @@ export default function PartnersPage() {
         await authResponse.json(),
       );
 
+    setUser(auth.user);
+
     const response =
       await fetch(`${API_BASE}/api/clubhouses`, {
         credentials: "include",
       });
 
     if (!response.ok) {
-      throw new Error("Unable to load partners.");
+      throw new Error("Unable to load Clubhouse access.");
     }
 
     const payload =
@@ -71,6 +78,18 @@ export default function PartnersPage() {
           item.deactivatedAt === null,
       ) ?? null,
     );
+
+    setFollowedClubhouses(
+      clubhouses.filter(
+        item =>
+          item.deactivatedAt === null &&
+          item.members.some(
+            member =>
+              member.user.id === auth.user.id &&
+              member.deactivatedAt === null,
+          ),
+      ),
+    );
   }
 
   useEffect(() => {
@@ -79,7 +98,7 @@ export default function PartnersPage() {
         setError(
           caught instanceof Error
             ? caught.message
-            : "Unable to load partners.",
+            : "Unable to load Clubhouse access.",
         );
       })
       .finally(() => {
@@ -153,16 +172,19 @@ export default function PartnersPage() {
     }
   }
 
+  const isPartner =
+    user?.userType === "partner";
+
   return (
     <main className="golf-page">
       <section className="golf-card">
         <header className="topbar">
-          <Link to="/golf" className="brand">
+          <Link to="/" className="brand">
             TEERIFIC
           </Link>
 
           <Link
-            to="/golf"
+            to="/"
             className="signout-button"
           >
             Back
@@ -171,18 +193,41 @@ export default function PartnersPage() {
 
         <div className="golf-hero">
           <div className="eyebrow">
-            PARTNERS
+            {isPartner ? "FOLLOWING" : "PARTNERS"}
           </div>
 
           <h1>
-            Who can see your round?
+            {isPartner
+              ? "Your golfer"
+              : "Who can see your round?"}
           </h1>
         </div>
 
         {loading ? (
           <p className="muted">
-            Loading partners…
+            Loading…
           </p>
+        ) : isPartner ? (
+          <div className="hole-timeline">
+            {followedClubhouses.map(item => (
+              <Link
+                key={item.id}
+                to={`/status/${item.primary.id}`}
+                className="hole-timeline-row"
+              >
+                <span>
+                  {item.primary.displayName ?? item.name}
+                </span>
+                <strong>View live status</strong>
+              </Link>
+            ))}
+
+            {followedClubhouses.length === 0 && (
+              <p className="muted">
+                You are not connected to a golfer yet.
+              </p>
+            )}
+          </div>
         ) : clubhouse ? (
           <>
             <div className="course-confirmation">
@@ -226,10 +271,7 @@ export default function PartnersPage() {
                     <span>
                       {member.user.displayName}
                     </span>
-
-                    <strong>
-                      Active
-                    </strong>
+                    <strong>Active</strong>
                   </div>
                 ))}
 

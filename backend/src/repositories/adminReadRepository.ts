@@ -11,8 +11,8 @@ import { pool } from "../db/pool.js";
 type UserRow = {
   id: string;
   display_name: string | null;
-  phone_number: string;
-  phone_verified_at: Date;
+  phone_number: string | null;
+  phone_verified_at: Date | null;
   is_admin: boolean;
   created_at: Date;
   updated_at: Date;
@@ -33,7 +33,7 @@ type MembershipRow = {
 
   primary_user_id: string;
   primary_display_name: string | null;
-  primary_phone_number: string;
+  primary_phone_number: string | null;
   primary_is_admin: boolean;
 
   joined_at: Date;
@@ -46,7 +46,7 @@ type ClubhouseRow = {
 
   primary_user_id: string;
   primary_display_name: string | null;
-  primary_phone_number: string;
+  primary_phone_number: string | null;
   primary_is_admin: boolean;
 
   deactivated_at: Date | null;
@@ -59,7 +59,7 @@ type ClubhouseMemberRow = {
 
   user_id: string;
   display_name: string | null;
-  phone_number: string;
+  phone_number: string | null;
   is_admin: boolean;
 
   joined_at: Date;
@@ -69,7 +69,7 @@ type ClubhouseMemberRow = {
 function identity(
   id: string,
   displayName: string | null,
-  phoneNumber: string,
+  phoneNumber: string | null,
   isAdmin: boolean
 ): AdminUserIdentity {
   return {
@@ -185,7 +185,9 @@ async function toAdminUser(
     phoneNumber: row.phone_number,
 
     phoneVerifiedAt:
-      row.phone_verified_at.toISOString(),
+      row.phone_verified_at
+        ? row.phone_verified_at.toISOString()
+        : null,
 
     isAdmin: row.is_admin,
 

@@ -5,20 +5,16 @@ import type {
 } from "express";
 import { authContext } from "./requireAuth.js";
 
-export function requireOnboardedUser(
+export function requireMember(
   request: Request,
   response: Response,
   next: NextFunction
 ): void {
-  const { currentUser } =
-    authContext(request);
+  const { currentUser } = authContext(request);
 
-  if (
-    currentUser.displayName === null ||
-    currentUser.userType === null
-  ) {
+  if (currentUser.userType !== "member") {
     response.status(403).json({
-      error: "PROFILE_SETUP_REQUIRED"
+      error: "MEMBER_REQUIRED"
     });
     return;
   }

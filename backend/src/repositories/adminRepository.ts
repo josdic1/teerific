@@ -25,7 +25,7 @@ export async function deleteUserCompletely(
       await client.query<{
         id: string;
         display_name: string | null;
-        phone_number: string;
+        phone_number: string | null;
         is_admin: boolean;
       }>(
         `
@@ -116,15 +116,17 @@ export async function deleteUserCompletely(
       [userId]
     );
 
-    await client.query(
-      `
-        DELETE
-        FROM phone_pin_challenges
-        WHERE phone_number =
-          $1
-      `,
-      [row.phone_number]
-    );
+    if (row.phone_number) {
+      await client.query(
+        `
+          DELETE
+          FROM phone_pin_challenges
+          WHERE phone_number =
+            $1
+        `,
+        [row.phone_number]
+      );
+    }
 
     await client.query(
       `

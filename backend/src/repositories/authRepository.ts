@@ -9,10 +9,11 @@ import type {
 
 type UserRow = {
   id: string;
-  phone_number: string;
-  phone_verified_at: Date;
+  phone_number: string | null;
+  phone_verified_at: Date | null;
   display_name: string | null;
   is_admin: boolean;
+  user_type: "member" | "partner" | "admin" | null;
   created_at: Date;
   updated_at: Date;
 };
@@ -25,11 +26,15 @@ function toCurrentUser(
     phoneNumber:
       row.phone_number,
     phoneVerifiedAt:
-      row.phone_verified_at.toISOString(),
+      row.phone_verified_at
+        ? row.phone_verified_at.toISOString()
+        : null,
     displayName:
       row.display_name,
     isAdmin:
       row.is_admin,
+    userType:
+      row.user_type,
     createdAt:
       row.created_at.toISOString(),
     updatedAt:
@@ -37,14 +42,21 @@ function toCurrentUser(
   };
 }
 
+const USER_RETURNING = `
+  id,
+  phone_number,
+  phone_verified_at,
+  display_name,
+  is_admin,
+  user_type,
+  created_at,
+  updated_at
+`;
+
 export async function findOrCreateVerifiedUserByPhone(
   phoneNumber: string,
   db: DbExecutor = pool
 ): Promise<CurrentUser> {
-  const isAdmin =
-    process.env.ADMIN_PHONE_NUMBER ===
-    phoneNumber;
-
   const result =
     await db.query<UserRow>(
       `
@@ -53,7 +65,7 @@ export async function findOrCreateVerifiedUserByPhone(
           phone_verified_at,
           is_admin
         )
-        VALUES ($1, now(), $2)
+        VALUES ($1, now(), false)
 
         ON CONFLICT (phone_number)
         DO UPDATE SET
@@ -61,25 +73,12 @@ export async function findOrCreateVerifiedUserByPhone(
             COALESCE(
               users.phone_verified_at,
               EXCLUDED.phone_verified_at
-            ),
-
-          is_admin =
-            users.is_admin
-            OR EXCLUDED.is_admin
+            )
 
         RETURNING
-          id,
-          phone_number,
-          phone_verified_at,
-          display_name,
-          is_admin,
-          created_at,
-          updated_at
+          ${USER_RETURNING}
       `,
-      [
-        phoneNumber,
-        isAdmin
-      ]
+      [phoneNumber]
     );
 
   const row =
@@ -89,6 +88,80 @@ export async function findOrCreateVerifiedUserByPhone(
     throw new Error(
       "User upsert returned no row"
     );
+  }
+
+  return toCurrentUser(row);
+}
+
+export async function findOrCreateAdminUser(
+  displayName: string,
+  db: DbExecutor = pool
+): Promise<CurrentUser> {
+  const existing =
+    await db.query<UserRow>(
+      `
+        SELECT ${USER_RETURNING}
+        FROM users
+        WHERE is_admin = true
+        LIMIT 1
+      `
+    );
+
+  const found = existing.rows[0];
+
+  if (found) {
+    if (
+      found.display_name !== displayName ||
+      found.user_type !== "admin"
+    ) {
+      const updated =
+        await db.query<UserRow>(
+          `
+            UPDATE users
+            SET
+              display_name = $2,
+              user_type = 'admin'
+            WHERE id = $1
+            RETURNING ${USER_RETURNING}
+          `,
+          [found.id, displayName]
+        );
+
+      const row = updated.rows[0];
+      if (!row) {
+        throw new Error("Admin update returned no row");
+      }
+      return toCurrentUser(row);
+    }
+
+    return toCurrentUser(found);
+  }
+
+  const inserted =
+    await db.query<UserRow>(
+      `
+        INSERT INTO users (
+          phone_number,
+          phone_verified_at,
+          display_name,
+          is_admin,
+          user_type
+        )
+        VALUES (
+          NULL,
+          NULL,
+          $1,
+          true,
+          'admin'
+        )
+        RETURNING ${USER_RETURNING}
+      `,
+      [displayName]
+    );
+
+  const row = inserted.rows[0];
+  if (!row) {
+    throw new Error("Admin insert returned no row");
   }
 
   return toCurrentUser(row);
@@ -129,6 +202,7 @@ export async function findUserBySessionHash(
           u.phone_verified_at,
           u.display_name,
           u.is_admin,
+          u.user_type,
           u.created_at,
           u.updated_at
 
@@ -179,22 +253,20 @@ export async function updateAccount(
       `
         UPDATE users
 
-        SET display_name = $2
+        SET
+          display_name = $2,
+          user_type = COALESCE(user_type, $3)
 
         WHERE id = $1
+          AND is_admin = false
 
         RETURNING
-          id,
-          phone_number,
-          phone_verified_at,
-          display_name,
-          is_admin,
-          created_at,
-          updated_at
+          ${USER_RETURNING}
       `,
       [
         userId,
-        input.displayName
+        input.displayName,
+        input.userType
       ]
     );
 

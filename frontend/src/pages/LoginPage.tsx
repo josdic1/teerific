@@ -14,6 +14,8 @@ import {
   RequestPhonePinResponseSchema,
   UpdateAccountInputSchema,
   VerifyPhonePinInputSchema,
+  type CurrentUser,
+  type OnboardingUserType,
 } from "@teerific/shared";
 
 import { API_BASE } from "../lib/api";
@@ -154,12 +156,30 @@ export default function LoginPage() {
   const rawNext =
     searchParams.get("next");
 
-  const next =
+  const requestedNext =
     rawNext &&
     rawNext.startsWith("/") &&
     !rawNext.startsWith("//")
       ? rawNext
-      : "/golf";
+      : null;
+
+  function destinationFor(
+    user: CurrentUser,
+  ): string {
+    if (requestedNext) {
+      return requestedNext;
+    }
+
+    if (user.isAdmin) {
+      return "/admin";
+    }
+
+    if (user.userType === "partner") {
+      return "/partners";
+    }
+
+    return "/golf";
+  }
 
   const [
     step,
@@ -187,6 +207,13 @@ export default function LoginPage() {
     displayName,
     setDisplayName,
   ] = useState("");
+
+  const [
+    userType,
+    setUserType,
+  ] = useState<OnboardingUserType | null>(
+    null,
+  );
 
   const [
     working,
@@ -246,14 +273,13 @@ export default function LoginPage() {
           }
 
           if (
-            parsed.user
-              .displayName ===
-            null
+            parsed.user.displayName === null ||
+            parsed.user.userType === null
           ) {
             setStep("profile");
           } else {
             navigate(
-              next,
+              destinationFor(parsed.user),
               {
                 replace:
                   true,
@@ -286,7 +312,7 @@ export default function LoginPage() {
     },
     [
       navigate,
-      next,
+      requestedNext,
     ],
   );
 
@@ -418,16 +444,15 @@ export default function LoginPage() {
         );
 
       if (
-        result.user
-          .displayName ===
-        null
+        result.user.displayName === null ||
+        result.user.userType === null
       ) {
         setStep("profile");
         return;
       }
 
       navigate(
-        next,
+        destinationFor(result.user),
         {
           replace:
             true,
@@ -453,6 +478,7 @@ export default function LoginPage() {
         UpdateAccountInputSchema
           .parse({
             displayName,
+            userType,
           });
 
       const response =
@@ -485,12 +511,13 @@ export default function LoginPage() {
         );
       }
 
-      AuthResponseSchema.parse(
-        await response.json(),
-      );
+      const result =
+        AuthResponseSchema.parse(
+          await response.json(),
+        );
 
       navigate(
-        next,
+        destinationFor(result.user),
         {
           replace:
             true,
@@ -680,8 +707,7 @@ export default function LoginPage() {
               </h1>
 
               <p>
-                This is the name your
-                Clubhouse will see.
+                Choose how you use Teerific.
               </p>
             </header>
 
@@ -711,12 +737,43 @@ export default function LoginPage() {
                 />
               </label>
 
+              <div className="auth-premium-form">
+                <button
+                  type="button"
+                  className={
+                    userType === "member"
+                      ? "primary-button"
+                      : "secondary-button"
+                  }
+                  onClick={() => {
+                    setUserType("member");
+                  }}
+                >
+                  I’m golfing
+                </button>
+
+                <button
+                  type="button"
+                  className={
+                    userType === "partner"
+                      ? "primary-button"
+                      : "secondary-button"
+                  }
+                  onClick={() => {
+                    setUserType("partner");
+                  }}
+                >
+                  I’m following a golfer
+                </button>
+              </div>
+
               <button
                 type="submit"
                 className="auth-premium-submit"
                 disabled={
                   working ||
-                  !displayName.trim()
+                  !displayName.trim() ||
+                  userType === null
                 }
               >
                 {working

@@ -19,6 +19,9 @@ import {
   requireOnboardedUser
 } from "../middleware/requireOnboardedUser.js";
 import {
+  requireMember
+} from "../middleware/requireMember.js";
+import {
   createRound,
   endRound,
   getCurrentRound,
@@ -41,7 +44,8 @@ export const roundsRouter =
 
 roundsRouter.use(
   requireAuth,
-  requireOnboardedUser
+  requireOnboardedUser,
+  requireMember
 );
 
 function parseId(

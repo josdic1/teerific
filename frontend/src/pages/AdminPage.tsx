@@ -3,8 +3,14 @@ import {
   useState
 } from "react";
 import {
-  Link
+  Link,
+  useNavigate
 } from "react-router-dom";
+import type {
+  AdminClubhouse,
+  AdminGolfSummary,
+  AdminUser
+} from "@teerific/shared";
 import {
   API_BASE
 } from "../lib/api";
@@ -20,138 +26,128 @@ type Course = {
   timezone: string;
   departureLocation: {
     type: "Point";
-    coordinates: [
-      number,
-      number
-    ];
+    coordinates: [number, number];
   } | null;
   active: boolean;
 };
 
-export default function AdminPage() {
-  const [
-    courses,
-    setCourses
-  ] = useState<Course[]>([]);
-
-  const [
-    loading,
-    setLoading
-  ] = useState(true);
-
-  const [
-    error,
-    setError
-  ] = useState<string | null>(
-    null
+async function adminJson<T>(
+  path: string,
+  navigate: ReturnType<typeof useNavigate>
+): Promise<T> {
+  const response = await fetch(
+    `${API_BASE}${path}`,
+    { credentials: "include" }
   );
 
-  const [
-    signingOut,
-    setSigningOut
-  ] = useState(false);
+  if (response.status === 401) {
+    navigate(
+      "/admin/login",
+      { replace: true }
+    );
+    throw new Error("UNAUTHENTICATED");
+  }
 
-  useEffect(
-    () => {
-      let cancelled =
-        false;
+  if (response.status === 403) {
+    throw new Error("Admin access required.");
+  }
 
-      async function load() {
-        try {
-          const response =
-            await fetch(
-              `${API_BASE}/api/admin/courses`,
-              {
-                credentials:
-                  "include"
-              }
-            );
+  if (!response.ok) {
+    throw new Error("Could not load admin data.");
+  }
 
-          if (!response.ok) {
-            throw new Error(
-              response.status === 403
-                ? "Admin access required."
-                : "Could not load courses."
-            );
-          }
+  return response.json() as Promise<T>;
+}
 
-          const payload =
-            await response.json() as {
-              courses:
-                Course[];
-            };
+export default function AdminPage() {
+  const navigate = useNavigate();
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [clubhouses, setClubhouses] = useState<AdminClubhouse[]>([]);
+  const [summary, setSummary] = useState<AdminGolfSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [signingOut, setSigningOut] = useState(false);
 
-          if (!cancelled) {
-            setCourses(
-              payload.courses
-            );
-          }
-        } catch (
-          loadError
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const [courseData, userData, clubhouseData, summaryData] =
+          await Promise.all([
+            adminJson<{ courses: Course[] }>(
+              "/api/admin/courses",
+              navigate
+            ),
+            adminJson<{ users: AdminUser[] }>(
+              "/api/admin/users",
+              navigate
+            ),
+            adminJson<{ clubhouses: AdminClubhouse[] }>(
+              "/api/admin/clubhouses",
+              navigate
+            ),
+            adminJson<{ summary: AdminGolfSummary }>(
+              "/api/admin/reports/summary",
+              navigate
+            )
+          ]);
+
+        if (!cancelled) {
+          setCourses(courseData.courses);
+          setUsers(userData.users);
+          setClubhouses(clubhouseData.clubhouses);
+          setSummary(summaryData.summary);
+        }
+      } catch (caught) {
+        if (
+          !cancelled &&
+          !(caught instanceof Error && caught.message === "UNAUTHENTICATED")
         ) {
-          if (!cancelled) {
-            setError(
-              loadError instanceof
-                Error
-                ? loadError.message
-                : "Could not load admin."
-            );
-          }
-        } finally {
-          if (!cancelled) {
-            setLoading(false);
-          }
+          setError(
+            caught instanceof Error
+              ? caught.message
+              : "Could not load admin."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
         }
       }
+    }
 
-      void load();
-
-      return () => {
-        cancelled =
-          true;
-      };
-    },
-    []
-  );
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
 
   async function signOut() {
     setSigningOut(true);
     setError(null);
 
     try {
-      const response =
-        await fetch(
-          `${API_BASE}/api/auth/logout`,
-          {
-            method:
-              "POST",
+      const response = await fetch(
+        `${API_BASE}/api/auth/logout`,
+        {
+          method: "POST",
+          credentials: "include"
+        }
+      );
 
-            credentials:
-              "include"
-          }
-        );
-
-      if (
-        !response.ok &&
-        response.status !== 401
-      ) {
-        throw new Error(
-          "Could not sign out."
-        );
+      if (!response.ok && response.status !== 401) {
+        throw new Error("Could not sign out.");
       }
 
-      window.location.replace(
-        "/login"
-      );
-    } catch (
-      signOutError
-    ) {
+      window.location.replace("/admin/login");
+    } catch (caught) {
       setError(
-        signOutError instanceof Error
-          ? signOutError.message
+        caught instanceof Error
+          ? caught.message
           : "Could not sign out."
       );
-
       setSigningOut(false);
     }
   }
@@ -164,33 +160,19 @@ export default function AdminPage() {
             <div className="eyebrow">
               TEERIFIC ADMIN
             </div>
-
-            <h1>
-              Courses
-            </h1>
-
+            <h1>Overview</h1>
             <p className="muted">
-              Permanent course geography,
-              hole detection zones and
-              departure points.
+              Users, Clubhouses, rounds and courses.
             </p>
           </div>
 
           <div className="admin-actions">
-            <Link
-              className="secondary-button admin-action-button"
-              to="/golf"
-            >
-              Golfer view
-            </Link>
-
             <Link
               className="primary-button admin-action-button"
               to="/admin/field-course"
             >
               Map course
             </Link>
-
             <button
               type="button"
               className="secondary-button admin-action-button"
@@ -199,79 +181,114 @@ export default function AdminPage() {
                 void signOut();
               }}
             >
-              {signingOut
-                ? "Signing out…"
-                : "Sign out"}
+              {signingOut ? "Signing out…" : "Sign out"}
             </button>
           </div>
         </header>
 
-        {loading && (
-          <p className="muted">
-            Loading courses…
-          </p>
-        )}
+        {loading && <p className="muted">Loading admin…</p>}
+        {error && <p className="error-message">{error}</p>}
 
-        {error && (
-          <p className="error-message">
-            {error}
-          </p>
-        )}
-
-        {!loading &&
-          !error &&
-          courses.length === 0 && (
-            <div className="admin-empty">
-              No courses yet.
+        {!loading && !error && summary && (
+          <>
+            <div className="golf-stats">
+              <div className="detail">
+                <span className="detail-label">Users</span>
+                <strong>{summary.totalUsers}</strong>
+              </div>
+              <div className="detail">
+                <span className="detail-label">Clubhouses</span>
+                <strong>{summary.totalClubhouses}</strong>
+              </div>
+              <div className="detail">
+                <span className="detail-label">Rounds</span>
+                <strong>{summary.totalRounds}</strong>
+              </div>
             </div>
-          )}
 
-        <div className="admin-course-list">
-          {courses.map(
-            course => (
-              <Link
-                key={course.id}
-                to={
-                  `/admin/courses/${course.id}`
-                }
-                className="admin-course-card"
-              >
-                <div>
-                  <div className="admin-course-name">
-                    {course.name}
+            <div className="eyebrow">USERS</div>
+            <div className="admin-course-list">
+              {users.map(user => (
+                <div key={user.id} className="admin-course-card">
+                  <div>
+                    <div className="admin-course-name">
+                      {user.displayName ?? "Profile incomplete"}
+                    </div>
+                    <div className="admin-course-meta">
+                      {user.isAdmin
+                        ? "ADMIN"
+                        : user.ownedClubhouses.length > 0
+                          ? "MEMBER"
+                          : "PARTNER"}
+                    </div>
+                    <div className="admin-course-address">
+                      {user.phoneNumber ?? "No phone"}
+                    </div>
                   </div>
-
-                  <div className="admin-course-meta">
-                    {course.city},{" "}
-                    {course.region}
-                  </div>
-
-                  <div className="admin-course-address">
-                    {course.address}
+                  <div className="admin-course-status">
+                    <span className="status-pill status-active">
+                      {user.roundCount} rounds
+                    </span>
                   </div>
                 </div>
+              ))}
+            </div>
 
-                <div className="admin-course-status">
-                  <span
-                    className={
-                      course.active
-                        ? "status-pill status-active"
-                        : "status-pill"
-                    }
-                  >
-                    {course.active
-                      ? "ACTIVE"
-                      : "INACTIVE"}
-                  </span>
-
-                  <span className="admin-arrow">
-                    →
-                  </span>
+            <div className="eyebrow">CLUBHOUSES</div>
+            <div className="admin-course-list">
+              {clubhouses.map(clubhouse => (
+                <div key={clubhouse.id} className="admin-course-card">
+                  <div>
+                    <div className="admin-course-name">
+                      {clubhouse.name}
+                    </div>
+                    <div className="admin-course-meta">
+                      {clubhouse.primary.displayName ?? "Unknown member"}
+                    </div>
+                    <div className="admin-course-address">
+                      {clubhouse.members.length} partner{clubhouse.members.length === 1 ? "" : "s"}
+                    </div>
+                  </div>
                 </div>
-              </Link>
-            )
-          )}
-        </div>
+              ))}
+            </div>
+
+            <div className="eyebrow">COURSES</div>
+            <div className="admin-course-list">
+              {courses.map(course => (
+                <Link
+                  key={course.id}
+                  to={`/admin/courses/${course.id}`}
+                  className="admin-course-card"
+                >
+                  <div>
+                    <div className="admin-course-name">
+                      {course.name}
+                    </div>
+                    <div className="admin-course-meta">
+                      {course.city}, {course.region}
+                    </div>
+                    <div className="admin-course-address">
+                      {course.address}
+                    </div>
+                  </div>
+                  <div className="admin-course-status">
+                    <span
+                      className={
+                        course.active
+                          ? "status-pill status-active"
+                          : "status-pill"
+                      }
+                    >
+                      {course.active ? "ACTIVE" : "INACTIVE"}
+                    </span>
+                    <span className="admin-arrow">→</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
       </section>
     </main>
   );

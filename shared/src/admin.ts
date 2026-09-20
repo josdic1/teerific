@@ -15,7 +15,7 @@ export const AdminUserIdentitySchema = z.object({
     .min(1)
     .max(100)
     .nullable(),
-  phoneNumber: PhoneNumberSchema,
+  phoneNumber: PhoneNumberSchema.nullable(),
   isAdmin: z.boolean()
 }).strict();
 
@@ -52,10 +52,10 @@ export const AdminUserSchema = z.object({
     .max(100)
     .nullable(),
 
-  phoneNumber: PhoneNumberSchema,
+  phoneNumber: PhoneNumberSchema.nullable(),
 
   phoneVerifiedAt:
-    IsoDateTimeSchema,
+    IsoDateTimeSchema.nullable(),
 
   isAdmin: z.boolean(),
 

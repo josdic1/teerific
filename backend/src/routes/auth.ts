@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  AdminLoginInputSchema,
   AuthResponseSchema,
   RequestPhonePinInputSchema,
   RequestPhonePinResponseSchema,
@@ -20,6 +21,10 @@ import {
   verifyPhonePinSms
 } from "../auth/sms.js";
 import {
+  adminDisplayName,
+  verifyAdminCredentials
+} from "../auth/adminCredentials.js";
+import {
   clearSessionCookie,
   createSessionToken,
   hashSessionToken,
@@ -35,11 +40,13 @@ import {
   requireAuth
 } from "../middleware/requireAuth.js";
 import {
+  adminLoginRateLimit,
   phonePinRequestRateLimit,
   phonePinVerifyRateLimit
 } from "../middleware/authRateLimits.js";
 import {
   createSession,
+  findOrCreateAdminUser,
   findOrCreateVerifiedUserByPhone,
   revokeSession,
   updateAccount
@@ -62,6 +69,87 @@ function sessionExpiry(): Date {
 
   return expires;
 }
+
+
+authRouter.post(
+  "/admin/login",
+  adminLoginRateLimit,
+  async (request, response) => {
+    const parsed =
+      AdminLoginInputSchema.safeParse(
+        request.body
+      );
+
+    if (!parsed.success) {
+      response.status(400).json({
+        error: "INVALID_REQUEST"
+      });
+      return;
+    }
+
+    if (
+      !verifyAdminCredentials(
+        parsed.data.username,
+        parsed.data.password
+      )
+    ) {
+      response.status(401).json({
+        error: "INVALID_ADMIN_CREDENTIALS"
+      });
+      return;
+    }
+
+    const token = createSessionToken();
+    const expiresAt = sessionExpiry();
+
+    const user =
+      await withTransaction(
+        async (client) => {
+          const admin =
+            await findOrCreateAdminUser(
+              adminDisplayName(),
+              client
+            );
+
+          await createSession(
+            admin.id,
+            hashSessionToken(token),
+            expiresAt,
+            client
+          );
+
+          await audit(
+            {
+              actor: admin,
+              action: "auth.admin_login",
+              targetType: "user",
+              targetId: admin.id,
+              targetSnapshot:
+                userSnapshot(admin),
+              metadata: {
+                method: "admin_credentials"
+              }
+            },
+            client
+          );
+
+          return admin;
+        }
+      );
+
+    setSessionCookie(
+      response,
+      token,
+      expiresAt
+    );
+
+    response.status(200).json(
+      AuthResponseSchema.parse({
+        user
+      })
+    );
+  }
+);
 
 
 authRouter.post(
@@ -404,7 +492,8 @@ authRouter.patch(
            * than duplicated.
            */
           if (
-            user.displayName !== null
+            user.displayName !== null &&
+            user.userType === "member"
           ) {
             const ensured =
               await ensurePrimaryClubhouse(

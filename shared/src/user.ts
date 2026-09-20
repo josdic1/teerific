@@ -11,6 +11,17 @@ export const PhoneNumberSchema = z
     "Phone number must use E.164 format"
   );
 
+export const UserTypeSchema = z.enum([
+  "member",
+  "partner",
+  "admin"
+]);
+
+export const OnboardingUserTypeSchema = z.enum([
+  "member",
+  "partner"
+]);
+
 export const UserSummarySchema = z.object({
   id: IdSchema,
   displayName: z
@@ -23,9 +34,10 @@ export const UserSummarySchema = z.object({
 
 export const CurrentUserSchema =
   UserSummarySchema.extend({
-    phoneNumber: PhoneNumberSchema,
-    phoneVerifiedAt: IsoDateTimeSchema,
+    phoneNumber: PhoneNumberSchema.nullable(),
+    phoneVerifiedAt: IsoDateTimeSchema.nullable(),
     isAdmin: z.boolean(),
+    userType: UserTypeSchema.nullable(),
     createdAt: IsoDateTimeSchema,
     updatedAt: IsoDateTimeSchema
   }).strict();
@@ -36,7 +48,8 @@ export const UpdateAccountInputSchema =
       .string()
       .trim()
       .min(1)
-      .max(100)
+      .max(100),
+    userType: OnboardingUserTypeSchema
   }).strict();
 
 export type UserSummary =
@@ -44,6 +57,12 @@ export type UserSummary =
 
 export type CurrentUser =
   z.infer<typeof CurrentUserSchema>;
+
+export type UserType =
+  z.infer<typeof UserTypeSchema>;
+
+export type OnboardingUserType =
+  z.infer<typeof OnboardingUserTypeSchema>;
 
 export type UpdateAccountInput =
   z.infer<typeof UpdateAccountInputSchema>;

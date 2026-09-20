@@ -22,6 +22,11 @@ export const VerifyPhonePinInputSchema = z.object({
   code: z.string().regex(/^\d{6}$/)
 }).strict();
 
+export const AdminLoginInputSchema = z.object({
+  username: z.string().trim().min(1).max(100),
+  password: z.string().min(1).max(500)
+}).strict();
+
 export const AuthResponseSchema = z.object({
   user: CurrentUserSchema
 }).strict();
@@ -34,6 +39,9 @@ export type RequestPhonePinResponse =
 
 export type VerifyPhonePinInput =
   z.infer<typeof VerifyPhonePinInputSchema>;
+
+export type AdminLoginInput =
+  z.infer<typeof AdminLoginInputSchema>;
 
 export type AuthResponse =
   z.infer<typeof AuthResponseSchema>;

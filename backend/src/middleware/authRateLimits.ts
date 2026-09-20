@@ -19,3 +19,14 @@ export const phonePinVerifyRateLimit = rateLimit({
     error: "TOO_MANY_PIN_ATTEMPTS"
   }
 });
+
+
+export const adminLoginRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: "TOO_MANY_ADMIN_LOGIN_ATTEMPTS"
+  }
+});

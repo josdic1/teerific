@@ -18,6 +18,9 @@ import {
   requireOnboardedUser
 } from "../middleware/requireOnboardedUser.js";
 import {
+  requireMember
+} from "../middleware/requireMember.js";
+import {
   addClubhouseMember,
   createClubhouse,
   findUserIdByPhone,
@@ -56,6 +59,7 @@ clubhousesRouter.get(
 
 clubhousesRouter.post(
   "/",
+  requireMember,
   async (request, response) => {
     const { currentUser } =
       authContext(request);
