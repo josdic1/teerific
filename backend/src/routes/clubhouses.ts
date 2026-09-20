@@ -2,7 +2,8 @@ import { Router } from "express";
 import {
   AddClubhouseMemberInputSchema,
   CreateClubhouseInputSchema,
-  IdSchema
+  IdSchema,
+  UpdateClubhouseMemberInputSchema
 } from "@teerific/shared";
 import {
   audit
@@ -26,8 +27,10 @@ import {
   findUserIdByPhone,
   isClubhousePrimary,
   listClubhousesForUser,
+  removeClubhouseMember,
   setClubhouseActive,
-  setClubhouseMemberActive
+  setClubhouseMemberActive,
+  updateClubhouseMemberDisplayName
 } from "../repositories/clubhouseRepository.js";
 
 export const clubhousesRouter =
@@ -574,6 +577,213 @@ async function setMemberState(
 
   response.status(204).send();
 }
+
+
+clubhousesRouter.patch(
+  "/:id/members/:membershipId",
+  async (request, response) => {
+    const { currentUser } =
+      authContext(request);
+
+    const clubhouseId =
+      IdSchema.safeParse(
+        request.params.id
+      );
+
+    const membershipId =
+      IdSchema.safeParse(
+        request.params.membershipId
+      );
+
+    const body =
+      UpdateClubhouseMemberInputSchema.safeParse(
+        request.body
+      );
+
+    if (
+      !clubhouseId.success ||
+      !membershipId.success ||
+      !body.success
+    ) {
+      response.status(400).json({
+        error: "INVALID_REQUEST"
+      });
+      return;
+    }
+
+    const outcome =
+      await withTransaction(
+        async (client) => {
+          const primary =
+            await isClubhousePrimary(
+              clubhouseId.data,
+              currentUser.id,
+              client
+            );
+
+          if (!primary) {
+            return {
+              type: "not_primary"
+            } as const;
+          }
+
+          const result =
+            await updateClubhouseMemberDisplayName(
+              clubhouseId.data,
+              membershipId.data,
+              body.data.displayName,
+              client
+            );
+
+          if (!result.found) {
+            return {
+              type: "not_found"
+            } as const;
+          }
+
+          await audit(
+            {
+              actor: currentUser,
+              action: "clubhouse.member_name_updated",
+              targetType: "clubhouse_member",
+              targetId: membershipId.data,
+              targetSnapshot: {
+                id: membershipId.data,
+                clubhouseId: clubhouseId.data,
+                userId: result.userId,
+                displayName: result.displayName
+              },
+              metadata: {
+                previousDisplayName:
+                  result.previousDisplayName,
+                displayName:
+                  result.displayName
+              }
+            },
+            client
+          );
+
+          return {
+            type: "updated"
+          } as const;
+        }
+      );
+
+    if (outcome.type === "not_primary") {
+      response.status(403).json({
+        error: "CLUBHOUSE_PRIMARY_REQUIRED"
+      });
+      return;
+    }
+
+    if (outcome.type === "not_found") {
+      response.status(404).json({
+        error: "CLUBHOUSE_MEMBER_NOT_FOUND"
+      });
+      return;
+    }
+
+    response.status(204).send();
+  }
+);
+
+
+clubhousesRouter.delete(
+  "/:id/members/:membershipId",
+  async (request, response) => {
+    const { currentUser } =
+      authContext(request);
+
+    const clubhouseId =
+      IdSchema.safeParse(
+        request.params.id
+      );
+
+    const membershipId =
+      IdSchema.safeParse(
+        request.params.membershipId
+      );
+
+    if (
+      !clubhouseId.success ||
+      !membershipId.success
+    ) {
+      response.status(400).json({
+        error: "INVALID_REQUEST"
+      });
+      return;
+    }
+
+    const outcome =
+      await withTransaction(
+        async (client) => {
+          const primary =
+            await isClubhousePrimary(
+              clubhouseId.data,
+              currentUser.id,
+              client
+            );
+
+          if (!primary) {
+            return {
+              type: "not_primary"
+            } as const;
+          }
+
+          const result =
+            await removeClubhouseMember(
+              clubhouseId.data,
+              membershipId.data,
+              client
+            );
+
+          if (!result.found) {
+            return {
+              type: "not_found"
+            } as const;
+          }
+
+          await audit(
+            {
+              actor: currentUser,
+              action: "clubhouse.member_removed",
+              targetType: "clubhouse_member",
+              targetId: membershipId.data,
+              targetSnapshot: {
+                id: membershipId.data,
+                clubhouseId: clubhouseId.data,
+                userId: result.userId,
+                joinedAt: result.joinedAt,
+                deactivatedAt:
+                  result.deactivatedAt
+              }
+            },
+            client
+          );
+
+          return {
+            type: "removed"
+          } as const;
+        }
+      );
+
+    if (outcome.type === "not_primary") {
+      response.status(403).json({
+        error: "CLUBHOUSE_PRIMARY_REQUIRED"
+      });
+      return;
+    }
+
+    if (outcome.type === "not_found") {
+      response.status(404).json({
+        error: "CLUBHOUSE_MEMBER_NOT_FOUND"
+      });
+      return;
+    }
+
+    response.status(204).send();
+  }
+);
 
 
 clubhousesRouter.patch(

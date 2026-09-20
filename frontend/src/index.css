@@ -111,6 +111,36 @@ a {
   opacity: 0.45;
 }
 
+.user-identity {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 12px;
+  border-left: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.user-identity-badge {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.user-identity-name {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .brand {
   color: var(--green);
   font-size: 13px;
@@ -455,6 +485,82 @@ h1 {
   font-weight: 650;
 }
 
+.partner-list {
+  display: grid;
+  gap: 0;
+}
+
+.partner-record {
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+
+.partner-record:first-child {
+  border-top: 0;
+}
+
+.partner-record-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.partner-record-name {
+  min-width: 0;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.partner-state {
+  flex: 0 0 auto;
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.partner-state-active {
+  color: var(--green);
+}
+
+.partner-record-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.partner-name-input {
+  min-width: 0;
+  flex: 1;
+  padding: 7px 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  color: var(--ink);
+  background: transparent;
+  font: inherit;
+}
+
+.partner-remove-button {
+  padding: 7px 0;
+  border: 0;
+  color: #9a3f3f;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.partner-remove-button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
 .tracking-note {
   margin-top: 22px;
   color: var(--ink-soft);
@@ -528,6 +634,18 @@ h1 {
   .round-meta {
     margin-top: 10px;
     font-size: 14px;
+  }
+
+  .topbar-actions {
+    gap: 10px;
+  }
+
+  .user-identity {
+    padding-left: 10px;
+  }
+
+  .user-identity-name {
+    display: none;
   }
 }
 

@@ -25,6 +25,7 @@ type MemberRow = {
   id: string;
   user_id: string;
   display_name: string | null;
+  display_name_override: string | null;
   joined_at: Date;
   deactivated_at: Date | null;
 };
@@ -70,6 +71,9 @@ function toMember(
         row.display_name
     },
 
+    displayName:
+      row.display_name_override,
+
     joinedAt:
       row.joined_at.toISOString(),
 
@@ -91,6 +95,7 @@ async function getMembers(
           cm.id,
           cm.user_id,
           u.display_name,
+          cm.display_name_override,
           cm.joined_at,
           cm.deactivated_at
 
@@ -477,6 +482,111 @@ export async function addClubhouseMember(
         : null
   };
 }
+
+export async function updateClubhouseMemberDisplayName(
+  clubhouseId: string,
+  membershipId: string,
+  displayName: string,
+  db: DbExecutor = pool
+): Promise<{
+  found: boolean;
+  userId: string | null;
+  previousDisplayName: string | null;
+  displayName: string | null;
+}> {
+  const result =
+    await db.query<{
+      user_id: string;
+      previous_display_name: string | null;
+      display_name: string | null;
+    }>(
+      `
+        WITH target AS MATERIALIZED (
+          SELECT
+            id,
+            user_id,
+            display_name_override
+              AS previous_display_name
+          FROM clubhouse_members
+          WHERE id = $1
+            AND clubhouse_id = $2
+          FOR UPDATE
+        )
+        UPDATE clubhouse_members cm
+        SET display_name_override = $3
+        FROM target t
+        WHERE cm.id = t.id
+        RETURNING
+          cm.user_id,
+          t.previous_display_name,
+          cm.display_name_override
+            AS display_name
+      `,
+      [
+        membershipId,
+        clubhouseId,
+        displayName
+      ]
+    );
+
+  const row = result.rows[0];
+
+  return {
+    found: Boolean(row),
+    userId: row?.user_id ?? null,
+    previousDisplayName:
+      row?.previous_display_name ?? null,
+    displayName:
+      row?.display_name ?? null
+  };
+}
+
+
+export async function removeClubhouseMember(
+  clubhouseId: string,
+  membershipId: string,
+  db: DbExecutor = pool
+): Promise<{
+  found: boolean;
+  userId: string | null;
+  joinedAt: string | null;
+  deactivatedAt: string | null;
+}> {
+  const result =
+    await db.query<{
+      user_id: string;
+      joined_at: Date;
+      deactivated_at: Date | null;
+    }>(
+      `
+        DELETE FROM clubhouse_members
+        WHERE id = $1
+          AND clubhouse_id = $2
+        RETURNING
+          user_id,
+          joined_at,
+          deactivated_at
+      `,
+      [
+        membershipId,
+        clubhouseId
+      ]
+    );
+
+  const row = result.rows[0];
+
+  return {
+    found: Boolean(row),
+    userId: row?.user_id ?? null,
+    joinedAt:
+      row?.joined_at.toISOString() ?? null,
+    deactivatedAt:
+      row?.deactivated_at
+        ? row.deactivated_at.toISOString()
+        : null
+  };
+}
+
 
 export async function setClubhouseActive(
   clubhouseId: string,

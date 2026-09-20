@@ -4,6 +4,7 @@ import {
 } from "react";
 import {
   Link,
+  useNavigate,
 } from "react-router-dom";
 import {
   AuthResponseSchema,
@@ -18,6 +19,8 @@ import {
 } from "./LoginPage";
 
 export default function PartnersPage() {
+  const navigate =
+    useNavigate();
   const [user, setUser] =
     useState<CurrentUser | null>(null);
   const [clubhouse, setClubhouse] =
@@ -32,6 +35,10 @@ export default function PartnersPage() {
     useState(false);
   const [error, setError] =
     useState<string | null>(null);
+  const [editingMemberId, setEditingMemberId] =
+    useState<string | null>(null);
+  const [editingName, setEditingName] =
+    useState("");
 
   async function load() {
     setError(null);
@@ -172,6 +179,194 @@ export default function PartnersPage() {
     }
   }
 
+  async function signOut() {
+    setWorking(true);
+    setError(null);
+
+    try {
+      const response =
+        await fetch(
+          `${API_BASE}/api/auth/logout`,
+          {
+            method: "POST",
+            credentials: "include",
+          },
+        );
+
+      if (
+        !response.ok &&
+        response.status !== 401
+      ) {
+        throw new Error(
+          "Unable to sign out.",
+        );
+      }
+
+      navigate(
+        "/login",
+        { replace: true },
+      );
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Unable to sign out.",
+      );
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function setPartnerActive(
+    membershipId: string,
+    active: boolean,
+  ) {
+    if (!clubhouse) {
+      return;
+    }
+
+    setWorking(true);
+    setError(null);
+
+    try {
+      const response =
+        await fetch(
+          `${API_BASE}/api/clubhouses/${encodeURIComponent(
+            clubhouse.id,
+          )}/members/${encodeURIComponent(
+            membershipId,
+          )}/${active ? "reactivate" : "deactivate"}`,
+          {
+            method: "PATCH",
+            credentials: "include",
+          },
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          active
+            ? "Unable to reactivate partner."
+            : "Unable to deactivate partner.",
+        );
+      }
+
+      await load();
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Unable to update partner.",
+      );
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function savePartnerName(
+    membershipId: string,
+  ) {
+    if (
+      !clubhouse ||
+      !editingName.trim()
+    ) {
+      return;
+    }
+
+    setWorking(true);
+    setError(null);
+
+    try {
+      const response =
+        await fetch(
+          `${API_BASE}/api/clubhouses/${encodeURIComponent(
+            clubhouse.id,
+          )}/members/${encodeURIComponent(
+            membershipId,
+          )}`,
+          {
+            method: "PATCH",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              displayName: editingName.trim(),
+            }),
+          },
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          "Unable to update partner name.",
+        );
+      }
+
+      setEditingMemberId(null);
+      setEditingName("");
+      await load();
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Unable to update partner name.",
+      );
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function removePartner(
+    membershipId: string,
+    displayName: string | null,
+  ) {
+    if (!clubhouse) {
+      return;
+    }
+
+    const confirmed =
+      window.confirm(
+        `Remove ${displayName ?? "this partner"} from your Clubhouse?`,
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setWorking(true);
+    setError(null);
+
+    try {
+      const response =
+        await fetch(
+          `${API_BASE}/api/clubhouses/${encodeURIComponent(
+            clubhouse.id,
+          )}/members/${encodeURIComponent(
+            membershipId,
+          )}`,
+          {
+            method: "DELETE",
+            credentials: "include",
+          },
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          "Unable to remove partner.",
+        );
+      }
+
+      await load();
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Unable to remove partner.",
+      );
+    } finally {
+      setWorking(false);
+    }
+  }
+
   const isPartner =
     user?.userType === "partner";
 
@@ -183,12 +378,25 @@ export default function PartnersPage() {
             TEERIFIC
           </Link>
 
-          <Link
-            to="/"
-            className="signout-button"
-          >
-            Back
-          </Link>
+          <div className="topbar-actions">
+            <Link
+              to="/"
+              className="signout-button"
+            >
+              Back
+            </Link>
+
+            <button
+              type="button"
+              className="signout-button"
+              disabled={working}
+              onClick={() => {
+                void signOut();
+              }}
+            >
+              Sign out
+            </button>
+          </div>
         </header>
 
         <div className="golf-hero">
@@ -257,28 +465,139 @@ export default function PartnersPage() {
               </button>
             </div>
 
-            <div className="hole-timeline">
-              {clubhouse.members
-                .filter(
-                  member =>
-                    member.deactivatedAt === null,
-                )
-                .map(member => (
+            <div className="hole-timeline partner-list">
+              {clubhouse.members.map(member => {
+                const active =
+                  member.deactivatedAt === null;
+
+                const editing =
+                  editingMemberId === member.id;
+
+                return (
                   <div
                     key={member.id}
-                    className="hole-timeline-row"
+                    className="partner-record"
                   >
-                    <span>
-                      {member.user.displayName}
-                    </span>
-                    <strong>Active</strong>
-                  </div>
-                ))}
+                    <div className="partner-record-main">
+                      {editing ? (
+                        <input
+                          className="partner-name-input"
+                          type="text"
+                          maxLength={100}
+                          value={editingName}
+                          disabled={working}
+                          onChange={event => {
+                            setEditingName(
+                              event.target.value,
+                            );
+                          }}
+                        />
+                      ) : (
+                        <strong className="partner-record-name">
+                          {member.displayName ??
+                            member.user.displayName ??
+                            "Partner"}
+                        </strong>
+                      )}
 
-              {clubhouse.members.filter(
-                member =>
-                  member.deactivatedAt === null,
-              ).length === 0 && (
+                      <span
+                        className={
+                          active
+                            ? "partner-state partner-state-active"
+                            : "partner-state"
+                        }
+                      >
+                        {active ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+
+                    <div className="partner-record-actions">
+                      {editing ? (
+                        <>
+                          <button
+                            type="button"
+                            className="signout-button"
+                            disabled={
+                              working ||
+                              !editingName.trim()
+                            }
+                            onClick={() => {
+                              void savePartnerName(
+                                member.id,
+                              );
+                            }}
+                          >
+                            Save
+                          </button>
+
+                          <button
+                            type="button"
+                            className="signout-button"
+                            disabled={working}
+                            onClick={() => {
+                              setEditingMemberId(null);
+                              setEditingName("");
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          className="signout-button"
+                          disabled={working}
+                          onClick={() => {
+                            setEditingMemberId(
+                              member.id,
+                            );
+                            setEditingName(
+                              member.displayName ??
+                              member.user.displayName ??
+                              "",
+                            );
+                          }}
+                        >
+                          Edit name
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        className="signout-button"
+                        disabled={working}
+                        onClick={() => {
+                          void setPartnerActive(
+                            member.id,
+                            !active,
+                          );
+                        }}
+                      >
+                        {active
+                          ? "Deactivate"
+                          : "Reactivate"}
+                      </button>
+
+                      <button
+                        type="button"
+                        className="partner-remove-button"
+                        disabled={working}
+                        onClick={() => {
+                          void removePartner(
+                            member.id,
+                            member.displayName ??
+                              member.user.displayName,
+                          );
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {clubhouse.members.length === 0 && (
                 <p className="muted">
                   No partners yet.
                 </p>

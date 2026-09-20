@@ -11,6 +11,12 @@ import {
 export const ClubhouseMemberSchema = z.object({
   id: IdSchema,
   user: UserSummarySchema,
+  displayName: z
+    .string()
+    .trim()
+    .min(1)
+    .max(100)
+    .nullable(),
   joinedAt: IsoDateTimeSchema,
   deactivatedAt:
     IsoDateTimeSchema.nullable()
@@ -52,6 +58,15 @@ export const AddClubhouseMemberInputSchema =
     phoneNumber: PhoneNumberSchema
   }).strict();
 
+export const UpdateClubhouseMemberInputSchema =
+  z.object({
+    displayName: z
+      .string()
+      .trim()
+      .min(1)
+      .max(100)
+  }).strict();
+
 export type ClubhouseMember =
   z.infer<typeof ClubhouseMemberSchema>;
 
@@ -63,3 +78,6 @@ export type CreateClubhouseInput =
 
 export type AddClubhouseMemberInput =
   z.infer<typeof AddClubhouseMemberInputSchema>;
+
+export type UpdateClubhouseMemberInput =
+  z.infer<typeof UpdateClubhouseMemberInputSchema>;

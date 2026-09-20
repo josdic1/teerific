@@ -1331,6 +1331,21 @@ export default function GolferRoundPage() {
               >
                 Sign out
               </button>
+              <div
+                className="user-identity"
+                title={user.displayName ?? "Member"}
+              >
+                <span className="user-identity-badge">
+                  {(user.displayName ?? "M")
+                    .trim()
+                    .charAt(0)
+                    .toUpperCase()}
+                </span>
+                <span className="user-identity-name">
+                  {user.displayName ?? "Member"}
+                </span>
+              </div>
+
             </div>
           </header>
 
@@ -1451,6 +1466,21 @@ export default function GolferRoundPage() {
             >
               Sign out
             </button>
+              <div
+                className="user-identity"
+                title={user.displayName ?? "Member"}
+              >
+                <span className="user-identity-badge">
+                  {(user.displayName ?? "M")
+                    .trim()
+                    .charAt(0)
+                    .toUpperCase()}
+                </span>
+                <span className="user-identity-name">
+                  {user.displayName ?? "Member"}
+                </span>
+              </div>
+
           </div>
         </header>
 
