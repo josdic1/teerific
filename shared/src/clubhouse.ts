@@ -19,7 +19,15 @@ export const ClubhouseMemberSchema = z.object({
     .nullable(),
   joinedAt: IsoDateTimeSchema,
   deactivatedAt:
-    IsoDateTimeSchema.nullable()
+    IsoDateTimeSchema.nullable(),
+
+  notifications: z.object({
+    roundStarts: z.boolean(),
+    backNineStarts: z.boolean(),
+    hole18Starts: z.boolean(),
+    roundEnds: z.boolean(),
+    headingHome: z.boolean()
+  }).strict()
 }).strict();
 
 export const ClubhouseSchema = z.object({
@@ -67,6 +75,15 @@ export const UpdateClubhouseMemberInputSchema =
       .max(100)
   }).strict();
 
+export const UpdateNotificationPreferencesInputSchema =
+  z.object({
+    roundStarts: z.boolean(),
+    backNineStarts: z.boolean(),
+    hole18Starts: z.boolean(),
+    roundEnds: z.boolean(),
+    headingHome: z.boolean()
+  }).strict();
+
 export type ClubhouseMember =
   z.infer<typeof ClubhouseMemberSchema>;
 
@@ -81,3 +98,6 @@ export type AddClubhouseMemberInput =
 
 export type UpdateClubhouseMemberInput =
   z.infer<typeof UpdateClubhouseMemberInputSchema>;
+
+export type UpdateNotificationPreferencesInput =
+  z.infer<typeof UpdateNotificationPreferencesInputSchema>;

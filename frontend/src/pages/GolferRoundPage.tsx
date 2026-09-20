@@ -1331,8 +1331,9 @@ export default function GolferRoundPage() {
               >
                 Sign out
               </button>
-              <div
-                className="user-identity"
+              <Link
+                to="/menu"
+                className="user-identity user-identity-link"
                 title={user.displayName ?? "Member"}
               >
                 <span className="user-identity-badge">
@@ -1344,7 +1345,7 @@ export default function GolferRoundPage() {
                 <span className="user-identity-name">
                   {user.displayName ?? "Member"}
                 </span>
-              </div>
+              </Link>
 
             </div>
           </header>
@@ -1466,8 +1467,9 @@ export default function GolferRoundPage() {
             >
               Sign out
             </button>
-              <div
-                className="user-identity"
+              <Link
+                to="/menu"
+                className="user-identity user-identity-link"
                 title={user.displayName ?? "Member"}
               >
                 <span className="user-identity-badge">
@@ -1479,7 +1481,7 @@ export default function GolferRoundPage() {
                 <span className="user-identity-name">
                   {user.displayName ?? "Member"}
                 </span>
-              </div>
+              </Link>
 
           </div>
         </header>

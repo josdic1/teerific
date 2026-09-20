@@ -102,6 +102,8 @@ export default function GolferStatusPage() {
     setLoading,
   ] = useState(true);
 
+  const [now, setNow] = useState(() => Date.now());
+
   const viewerLocationRef =
     useRef<ViewerCurrentLocationInput | null>(
       null,
@@ -119,6 +121,14 @@ export default function GolferStatusPage() {
     contextRef.current =
       context;
   }, [context]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, []);
 
   const refreshArrival =
     useCallback(
@@ -505,6 +515,17 @@ export default function GolferStatusPage() {
     arrival.status ===
     "available";
 
+  const homeCountdown = (() => {
+    if (!arrivalAvailable) return null;
+    const remaining = Math.max(0, new Date(arrival.estimatedArrivalAt).getTime() - now);
+    const totalMinutes = Math.max(0, Math.ceil(remaining / 60_000));
+    if (totalMinutes <= 0) return "HOME";
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours > 0) return `${hours} HR ${String(minutes).padStart(2, "0")} MIN`;
+    return `${totalMinutes} MIN`;
+  })();
+
   return (
     <main className="page">
       <section className="status-card">
@@ -570,22 +591,20 @@ export default function GolferStatusPage() {
         <div className="arrival-panel">
           {arrivalAvailable ? (
             <>
-              <div className="arrival-label">
-                EXPECTED ARRIVAL
+              <div className="home-countdown-label">
+                HOME IN
               </div>
 
-              <div className="arrival-time">
-                {formatTime(
-                  arrival.estimatedArrivalAt,
-                )}
+              <div className="home-countdown">
+                {homeCountdown}
+              </div>
+
+              <div className="home-countdown-subline">
+                Expected arrival {formatTime(arrival.estimatedArrivalAt)}
               </div>
 
               <p className="arrival-copy">
-                Expected to reach{" "}
-                {target.label
-                  ? target.label
-                  : "your current location"}
-                .
+                To {target.label ? target.label : "your current location"}.
               </p>
             </>
           ) : (

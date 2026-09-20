@@ -1,0 +1,10 @@
+BEGIN;
+
+ALTER TABLE clubhouse_members
+  ADD COLUMN notify_round_starts BOOLEAN NOT NULL DEFAULT TRUE,
+  ADD COLUMN notify_back_nine_starts BOOLEAN NOT NULL DEFAULT TRUE,
+  ADD COLUMN notify_hole_18_starts BOOLEAN NOT NULL DEFAULT TRUE,
+  ADD COLUMN notify_round_ends BOOLEAN NOT NULL DEFAULT TRUE,
+  ADD COLUMN notify_heading_home BOOLEAN NOT NULL DEFAULT TRUE;
+
+COMMIT;

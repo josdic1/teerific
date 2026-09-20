@@ -3,7 +3,8 @@ import {
   AddClubhouseMemberInputSchema,
   CreateClubhouseInputSchema,
   IdSchema,
-  UpdateClubhouseMemberInputSchema
+  UpdateClubhouseMemberInputSchema,
+  UpdateNotificationPreferencesInputSchema
 } from "@teerific/shared";
 import {
   audit
@@ -30,7 +31,8 @@ import {
   removeClubhouseMember,
   setClubhouseActive,
   setClubhouseMemberActive,
-  updateClubhouseMemberDisplayName
+  updateClubhouseMemberDisplayName,
+  updateNotificationPreferences
 } from "../repositories/clubhouseRepository.js";
 
 export const clubhousesRouter =
@@ -315,6 +317,83 @@ clubhousesRouter.post(
 
       throw error;
     }
+  }
+);
+
+
+
+clubhousesRouter.patch(
+  "/:id/notifications",
+  async (request, response) => {
+    const { currentUser } =
+      authContext(request);
+
+    const clubhouseId =
+      IdSchema.safeParse(
+        request.params.id
+      );
+
+    const body =
+      UpdateNotificationPreferencesInputSchema.safeParse(
+        request.body
+      );
+
+    if (
+      !clubhouseId.success ||
+      !body.success
+    ) {
+      response.status(400).json({
+        error: "INVALID_REQUEST"
+      });
+      return;
+    }
+
+    const outcome =
+      await withTransaction(
+        async (client) => {
+          const updated =
+            await updateNotificationPreferences(
+              clubhouseId.data,
+              currentUser.id,
+              body.data,
+              client
+            );
+
+          if (!updated) {
+            return {
+              type: "not_member"
+            } as const;
+          }
+
+          await audit(
+            {
+              actor: currentUser,
+              action: "clubhouse.notifications_updated",
+              targetType: "clubhouse",
+              targetId: clubhouseId.data,
+              targetSnapshot: {
+                clubhouseId: clubhouseId.data,
+                userId: currentUser.id,
+                notifications: body.data
+              }
+            },
+            client
+          );
+
+          return {
+            type: "updated"
+          } as const;
+        }
+      );
+
+    if (outcome.type === "not_member") {
+      response.status(404).json({
+        error: "ACTIVE_CLUBHOUSE_MEMBERSHIP_NOT_FOUND"
+      });
+      return;
+    }
+
+    response.status(204).send();
   }
 );
 

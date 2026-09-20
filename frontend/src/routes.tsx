@@ -12,6 +12,9 @@ import GolferRoundPage from "./pages/GolferRoundPage";
 import GolferStatusPage from "./pages/GolferStatusPage";
 import LoginPage from "./pages/LoginPage";
 import PartnersPage from "./pages/PartnersPage";
+import MenuPage from "./pages/MenuPage";
+import AccountPage from "./pages/AccountPage";
+import NotificationsPage from "./pages/NotificationsPage";
 
 export default function AppRoutes() {
   return (
@@ -60,6 +63,10 @@ export default function AppRoutes() {
           <PartnersPage />
         }
       />
+
+      <Route path="/menu" element={<MenuPage />} />
+      <Route path="/account" element={<AccountPage />} />
+      <Route path="/notifications" element={<NotificationsPage />} />
 
       <Route
         path="/status/:golferUserId"

@@ -28,6 +28,11 @@ type MemberRow = {
   display_name_override: string | null;
   joined_at: Date;
   deactivated_at: Date | null;
+  notify_round_starts: boolean;
+  notify_back_nine_starts: boolean;
+  notify_hole_18_starts: boolean;
+  notify_round_ends: boolean;
+  notify_heading_home: boolean;
 };
 
 type AddedMemberRow = {
@@ -80,7 +85,15 @@ function toMember(
     deactivatedAt:
       row.deactivated_at
         ? row.deactivated_at.toISOString()
-        : null
+        : null,
+
+    notifications: {
+      roundStarts: row.notify_round_starts,
+      backNineStarts: row.notify_back_nine_starts,
+      hole18Starts: row.notify_hole_18_starts,
+      roundEnds: row.notify_round_ends,
+      headingHome: row.notify_heading_home
+    }
   };
 }
 
@@ -97,7 +110,12 @@ async function getMembers(
           u.display_name,
           cm.display_name_override,
           cm.joined_at,
-          cm.deactivated_at
+          cm.deactivated_at,
+          cm.notify_round_starts,
+          cm.notify_back_nine_starts,
+          cm.notify_hole_18_starts,
+          cm.notify_round_ends,
+          cm.notify_heading_home
 
         FROM clubhouse_members cm
 
@@ -785,6 +803,49 @@ export async function setClubhouseMemberActive(
         ? row.deactivated_at.toISOString()
         : null
   };
+}
+
+
+export async function updateNotificationPreferences(
+  clubhouseId: string,
+  userId: string,
+  preferences: {
+    roundStarts: boolean;
+    backNineStarts: boolean;
+    hole18Starts: boolean;
+    roundEnds: boolean;
+    headingHome: boolean;
+  },
+  db: DbExecutor = pool
+): Promise<boolean> {
+  const result =
+    await db.query(
+      `
+        UPDATE clubhouse_members
+
+        SET
+          notify_round_starts = $3,
+          notify_back_nine_starts = $4,
+          notify_hole_18_starts = $5,
+          notify_round_ends = $6,
+          notify_heading_home = $7
+
+        WHERE clubhouse_id = $1
+          AND user_id = $2
+          AND deactivated_at IS NULL
+      `,
+      [
+        clubhouseId,
+        userId,
+        preferences.roundStarts,
+        preferences.backNineStarts,
+        preferences.hole18Starts,
+        preferences.roundEnds,
+        preferences.headingHome
+      ]
+    );
+
+  return result.rowCount === 1;
 }
 
 

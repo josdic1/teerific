@@ -396,6 +396,21 @@ export default function PartnersPage() {
             >
               Sign out
             </button>
+
+            {user && (
+              <Link
+                to="/menu"
+                className="user-identity user-identity-link"
+                title={user.displayName ?? "Account"}
+              >
+                <span className="user-identity-badge">
+                  {(user.displayName ?? "T").trim().charAt(0).toUpperCase()}
+                </span>
+                <span className="user-identity-name">
+                  {user.displayName ?? "Account"}
+                </span>
+              </Link>
+            )}
           </div>
         </header>
 
