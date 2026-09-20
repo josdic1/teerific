@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   AdminLoginInputSchema,
+  TestLoginInputSchema,
   AuthResponseSchema,
   RequestPhonePinInputSchema,
   RequestPhonePinResponseSchema,
@@ -24,6 +25,10 @@ import {
   adminDisplayName,
   verifyAdminCredentials
 } from "../auth/adminCredentials.js";
+import {
+  testLoginEnabled,
+  verifyTestLoginSecret
+} from "../auth/testLogin.js";
 import {
   clearSessionCookie,
   createSessionToken,
@@ -134,6 +139,95 @@ authRouter.post(
           );
 
           return admin;
+        }
+      );
+
+    setSessionCookie(
+      response,
+      token,
+      expiresAt
+    );
+
+    response.status(200).json(
+      AuthResponseSchema.parse({
+        user
+      })
+    );
+  }
+);
+
+
+authRouter.post(
+  "/test-login",
+  async (request, response) => {
+    if (!testLoginEnabled()) {
+      response.status(404).json({
+        error: "NOT_FOUND"
+      });
+      return;
+    }
+
+    const parsed =
+      TestLoginInputSchema.safeParse(
+        request.body
+      );
+
+    if (!parsed.success) {
+      response.status(400).json({
+        error: "INVALID_REQUEST"
+      });
+      return;
+    }
+
+    if (
+      !verifyTestLoginSecret(
+        parsed.data.secret
+      )
+    ) {
+      response.status(401).json({
+        error: "INVALID_TEST_LOGIN"
+      });
+      return;
+    }
+
+    const token =
+      createSessionToken();
+
+    const expiresAt =
+      sessionExpiry();
+
+    const user =
+      await withTransaction(
+        async (client) => {
+          const result =
+            await findOrCreateVerifiedUserByPhone(
+              parsed.data.phoneNumber,
+              client
+            );
+
+          await createSession(
+            result.id,
+            hashSessionToken(token),
+            expiresAt,
+            client
+          );
+
+          await audit(
+            {
+              actor: result,
+              action: "auth.test_login",
+              targetType: "user",
+              targetId: result.id,
+              targetSnapshot:
+                userSnapshot(result),
+              metadata: {
+                method: "test_login"
+              }
+            },
+            client
+          );
+
+          return result;
         }
       );
 

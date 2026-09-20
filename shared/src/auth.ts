@@ -27,6 +27,11 @@ export const AdminLoginInputSchema = z.object({
   password: z.string().min(1).max(500)
 }).strict();
 
+export const TestLoginInputSchema = z.object({
+  phoneNumber: PhoneNumberSchema,
+  secret: z.string().min(1).max(500)
+}).strict();
+
 export const AuthResponseSchema = z.object({
   user: CurrentUserSchema
 }).strict();
@@ -42,6 +47,9 @@ export type VerifyPhonePinInput =
 
 export type AdminLoginInput =
   z.infer<typeof AdminLoginInputSchema>;
+
+export type TestLoginInput =
+  z.infer<typeof TestLoginInputSchema>;
 
 export type AuthResponse =
   z.infer<typeof AuthResponseSchema>;

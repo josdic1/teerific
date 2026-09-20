@@ -12,6 +12,7 @@ import {
   AuthResponseSchema,
   RequestPhonePinInputSchema,
   RequestPhonePinResponseSchema,
+  TestLoginInputSchema,
   UpdateAccountInputSchema,
   VerifyPhonePinInputSchema,
   type CurrentUser,
@@ -156,6 +157,9 @@ export default function LoginPage() {
   const rawNext =
     searchParams.get("next");
 
+  const testMode =
+    searchParams.get("test") === "1";
+
   const requestedNext =
     rawNext &&
     rawNext.startsWith("/") &&
@@ -189,6 +193,11 @@ export default function LoginPage() {
   const [
     phone,
     setPhone,
+  ] = useState("");
+
+  const [
+    testSecret,
+    setTestSecret,
   ] = useState("");
 
   const [
@@ -315,6 +324,70 @@ export default function LoginPage() {
       requestedNext,
     ],
   );
+
+  async function testLogin() {
+    setWorking(true);
+    setError(null);
+
+    try {
+      const input =
+        TestLoginInputSchema.parse({
+          phoneNumber:
+            normalizePhoneNumber(phone),
+          secret:
+            testSecret,
+        });
+
+      const response =
+        await fetch(
+          `${API_BASE}/api/auth/test-login`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body:
+              JSON.stringify(input),
+          },
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          await readApiError(response),
+        );
+      }
+
+      const result =
+        AuthResponseSchema.parse(
+          await response.json(),
+        );
+
+      if (
+        result.user.displayName === null ||
+        result.user.userType === null
+      ) {
+        setStep("profile");
+        return;
+      }
+
+      navigate(
+        destinationFor(result.user),
+        {
+          replace: true,
+        },
+      );
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Unable to use test login.",
+      );
+    } finally {
+      setWorking(false);
+    }
+  }
 
   async function requestPin() {
     setWorking(true);
@@ -599,6 +672,41 @@ export default function LoginPage() {
                   }}
                 />
               </label>
+
+              {testMode && (
+                <label className="auth-minimal-field">
+                  <span>
+                    Test secret
+                  </span>
+
+                  <input
+                    type="password"
+                    value={testSecret}
+                    onChange={event => {
+                      setTestSecret(
+                        event.target.value,
+                      );
+                    }}
+                  />
+                </label>
+              )}
+
+              {testMode && (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={
+                    working ||
+                    !hasCompleteUsPhone(phone) ||
+                    !testSecret
+                  }
+                  onClick={() => {
+                    void testLogin();
+                  }}
+                >
+                  Test login
+                </button>
+              )}
 
               <button
                 type="submit"
