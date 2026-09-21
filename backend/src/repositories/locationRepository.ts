@@ -1,5 +1,6 @@
 import type {
   LocationSample,
+  LocationSampleRejectionReason,
   LocationUpdateInput
 } from "@teerific/shared";
 import {
@@ -17,6 +18,9 @@ import {
 import {
   applyConfirmedHoleTransition
 } from "./holeVisitRepository.js";
+import {
+  classifyLocationTimestamp
+} from "../services/locationSamplePolicy.js";
 
 type RoundRow = {
   id: string;
@@ -37,6 +41,7 @@ type PriorLocationRow = {
 type LocationRow = {
   id: string;
   round_id: string;
+  client_sample_id: string;
   detected_hole_id: string | null;
   latitude: number;
   longitude: number;
@@ -45,6 +50,14 @@ type LocationRow = {
   speed_meters_per_second: number | null;
   heading_degrees: number | null;
   recorded_at: Date;
+  created_at: Date;
+};
+
+type DuplicateLocationRow =
+  LocationRow & {
+    duplicate_reason:
+      | "duplicate_sample_id"
+      | "duplicate_recorded_at";
 };
 
 const MAX_ACCURACY_ASSIST_METERS =
@@ -53,6 +66,7 @@ const MAX_ACCURACY_ASSIST_METERS =
 const LOCATION_COLUMNS = `
   id,
   round_id,
+  client_sample_id,
   detected_hole_id,
   latitude,
   longitude,
@@ -60,7 +74,8 @@ const LOCATION_COLUMNS = `
   altitude_meters,
   speed_meters_per_second,
   heading_degrees,
-  recorded_at
+  recorded_at,
+  created_at
 `;
 
 function toLocationSample(
@@ -72,6 +87,9 @@ function toLocationSample(
 
     roundId:
       row.round_id,
+
+    sampleId:
+      row.client_sample_id,
 
     detectedHoleId:
       row.detected_hole_id,
@@ -95,8 +113,130 @@ function toLocationSample(
       row.heading_degrees,
 
     recordedAt:
-      row.recorded_at.toISOString()
+      row.recorded_at.toISOString(),
+
+    receivedAt:
+      row.created_at.toISOString()
   });
+}
+
+async function recordLocationRejection(
+  roundId: string,
+  input: LocationUpdateInput,
+  reason:
+    | LocationSampleRejectionReason
+    | "historical_duplicate",
+  db: DbExecutor
+): Promise<void> {
+  await db.query(
+    `
+      INSERT INTO location_sample_rejections (
+        round_id,
+        client_sample_id,
+        reason,
+        latitude,
+        longitude,
+        accuracy_meters,
+        altitude_meters,
+        speed_meters_per_second,
+        heading_degrees,
+        recorded_at
+      )
+      VALUES (
+        $1,
+        $2,
+        $3,
+        $4,
+        $5,
+        $6,
+        $7,
+        $8,
+        $9,
+        $10
+      )
+    `,
+    [
+      roundId,
+      input.sampleId,
+      reason,
+      input.latitude,
+      input.longitude,
+      input.accuracyMeters,
+      input.altitudeMeters,
+      input.speedMetersPerSecond,
+      input.headingDegrees,
+      input.recordedAt
+    ]
+  );
+}
+
+async function findDuplicateLocation(
+  roundId: string,
+  input: LocationUpdateInput,
+  db: DbExecutor
+): Promise<DuplicateLocationRow | null> {
+  const result =
+    await db.query<DuplicateLocationRow>(
+      `
+        SELECT
+          ${LOCATION_COLUMNS},
+
+          CASE
+            WHEN client_sample_id = $2
+              THEN 'duplicate_sample_id'
+            ELSE 'duplicate_recorded_at'
+          END AS duplicate_reason
+
+        FROM location_samples
+
+        WHERE
+          round_id = $1
+          AND (
+            client_sample_id = $2
+            OR recorded_at = $3
+          )
+
+        ORDER BY
+          CASE
+            WHEN client_sample_id = $2
+              THEN 0
+            ELSE 1
+          END
+
+        LIMIT 1
+      `,
+      [
+        roundId,
+        input.sampleId,
+        input.recordedAt
+      ]
+    );
+
+  return result.rows[0] ?? null;
+}
+
+function logLocationOutcome(
+  input: {
+    roundId: string;
+    sampleId: string;
+    recordedAt: string;
+    outcome:
+      | "recorded"
+      | "duplicate"
+      | "stale";
+    reason?:
+      LocationSampleRejectionReason;
+  }
+): void {
+  console.info(
+    JSON.stringify({
+      event:
+        "teerific.location_sample",
+      receivedAt:
+        new Date().toISOString(),
+      ...input
+    })
+  );
 }
 
 async function detectHole(
@@ -217,6 +357,22 @@ export type RecordLocationResult =
         "recorded";
       sample:
         LocationSample;
+    }
+  | {
+      type:
+        "duplicate";
+      reason:
+        | "duplicate_sample_id"
+        | "duplicate_recorded_at";
+      sample:
+        LocationSample;
+    }
+  | {
+      type:
+        "stale";
+      reason:
+        | "too_old"
+        | "future_dated";
     };
 
 export async function recordLocationSample(
@@ -270,6 +426,87 @@ export async function recordLocationSample(
     };
   }
 
+  const receivedAt =
+    new Date();
+
+  const currentRecordedAt =
+    new Date(
+      input.recordedAt
+    );
+
+  const timestampDecision =
+    classifyLocationTimestamp(
+      currentRecordedAt,
+      receivedAt
+    );
+
+  if (!timestampDecision.accepted) {
+    await recordLocationRejection(
+      roundId,
+      input,
+      timestampDecision.reason,
+      db
+    );
+
+    logLocationOutcome({
+      roundId,
+      sampleId:
+        input.sampleId,
+      recordedAt:
+        input.recordedAt,
+      outcome:
+        "stale",
+      reason:
+        timestampDecision.reason
+    });
+
+    return {
+      type:
+        "stale",
+      reason:
+        timestampDecision.reason
+    };
+  }
+
+  const duplicate =
+    await findDuplicateLocation(
+      roundId,
+      input,
+      db
+    );
+
+  if (duplicate) {
+    await recordLocationRejection(
+      roundId,
+      input,
+      duplicate.duplicate_reason,
+      db
+    );
+
+    logLocationOutcome({
+      roundId,
+      sampleId:
+        input.sampleId,
+      recordedAt:
+        input.recordedAt,
+      outcome:
+        "duplicate",
+      reason:
+        duplicate.duplicate_reason
+    });
+
+    return {
+      type:
+        "duplicate",
+      reason:
+        duplicate.duplicate_reason,
+      sample:
+        toLocationSample(
+          duplicate
+        )
+    };
+  }
+
   const detectedHoleId =
     await detectHole(
       round.course_id,
@@ -307,16 +544,12 @@ export async function recordLocationSample(
   const prior =
     priorResult.rows[0];
 
-  const currentRecordedAt =
-    new Date(
-      input.recordedAt
-    );
-
   const result =
     await db.query<LocationRow>(
       `
         INSERT INTO location_samples (
           round_id,
+          client_sample_id,
           detected_hole_id,
           latitude,
           longitude,
@@ -335,7 +568,8 @@ export async function recordLocationSample(
           $6,
           $7,
           $8,
-          $9
+          $9,
+          $10
         )
 
         RETURNING
@@ -343,6 +577,7 @@ export async function recordLocationSample(
       `,
       [
         roundId,
+        input.sampleId,
         detectedHoleId,
         input.latitude,
         input.longitude,
@@ -362,6 +597,16 @@ export async function recordLocationSample(
       "Location insert returned no row"
     );
   }
+
+  logLocationOutcome({
+    roundId,
+    sampleId:
+      input.sampleId,
+    recordedAt:
+      input.recordedAt,
+    outcome:
+      "recorded"
+  });
 
   /*
    * Only the newest chronological sample is allowed

@@ -32,6 +32,9 @@ function positionToLocation(
     );
 
   return LocationUpdateInputSchema.parse({
+    sampleId:
+      crypto.randomUUID(),
+
     latitude:
       coords.latitude,
 

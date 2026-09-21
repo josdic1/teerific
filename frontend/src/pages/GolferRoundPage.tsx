@@ -14,6 +14,7 @@ import {
   HoleSchema,
   HoleVisitSchema,
   LiveGolferStateSchema,
+  LocationSampleWriteResultSchema,
   RoundSchema,
   type AuthResponse,
   type Course,
@@ -153,6 +154,18 @@ async function postLocationSample(
       await readApiError(
         response,
       ),
+    );
+  }
+
+  const result =
+    LocationSampleWriteResultSchema.parse(
+      await response.json(),
+    );
+
+  if (import.meta.env.DEV) {
+    console.debug(
+      "TEERIFIC GPS WRITE",
+      result,
     );
   }
 }

@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   EndRoundInputSchema,
   IdSchema,
+  LocationSampleWriteResultSchema,
   LocationUpdateInputSchema,
   StartRoundInputSchema
 } from "@teerific/shared";
@@ -513,10 +514,50 @@ roundsRouter.post(
       return;
     }
 
-    response.status(201).json({
-      sample:
-        outcome.sample
-    });
+    if (
+      outcome.type ===
+      "stale"
+    ) {
+      response.status(200).json(
+        LocationSampleWriteResultSchema.parse({
+          outcome:
+            "stale",
+          reason:
+            outcome.reason,
+          sample:
+            null
+        })
+      );
+
+      return;
+    }
+
+    if (
+      outcome.type ===
+      "duplicate"
+    ) {
+      response.status(200).json(
+        LocationSampleWriteResultSchema.parse({
+          outcome:
+            "duplicate",
+          reason:
+            outcome.reason,
+          sample:
+            outcome.sample
+        })
+      );
+
+      return;
+    }
+
+    response.status(201).json(
+      LocationSampleWriteResultSchema.parse({
+        outcome:
+          "recorded",
+        sample:
+          outcome.sample
+      })
+    );
   }
 );
 

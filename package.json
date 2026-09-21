@@ -14,6 +14,8 @@
   "scripts": {
     "build": "npm run build --workspace @teerific/shared && npm run build --workspace @teerific/backend && npm run build --workspace frontend",
     "typecheck": "npm run typecheck --workspace @teerific/shared && npm run typecheck --workspace @teerific/backend && npm run typecheck --workspace frontend",
+    "test": "npm run test --workspace @teerific/backend",
+    "check": "npm run typecheck && npm run test && npm run build",
     "clean": "rm -rf backend/dist frontend/dist shared/dist",
     "dev": "concurrently -n backend,frontend \"npm run dev --workspace @teerific/backend\" \"npm run dev --workspace frontend\""
   }

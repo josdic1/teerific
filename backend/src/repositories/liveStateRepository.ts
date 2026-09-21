@@ -39,6 +39,7 @@ type HoleRow = {
 type LocationRow = {
   id: string;
   round_id: string;
+  client_sample_id: string;
   detected_hole_id: string | null;
   latitude: number;
   longitude: number;
@@ -47,6 +48,7 @@ type LocationRow = {
   speed_meters_per_second: number | null;
   heading_degrees: number | null;
   recorded_at: Date;
+  created_at: Date;
 };
 
 function toLocationSample(
@@ -58,6 +60,9 @@ function toLocationSample(
 
     roundId:
       row.round_id,
+
+    sampleId:
+      row.client_sample_id,
 
     detectedHoleId:
       row.detected_hole_id,
@@ -81,7 +86,10 @@ function toLocationSample(
       row.heading_degrees,
 
     recordedAt:
-      row.recorded_at.toISOString()
+      row.recorded_at.toISOString(),
+
+    receivedAt:
+      row.created_at.toISOString()
   });
 }
 
@@ -224,6 +232,7 @@ export async function getLiveGolferState(
           SELECT
             id,
             round_id,
+            client_sample_id,
             detected_hole_id,
             latitude,
             longitude,
@@ -231,7 +240,8 @@ export async function getLiveGolferState(
             altitude_meters,
             speed_meters_per_second,
             heading_degrees,
-            recorded_at
+            recorded_at,
+            created_at
 
           FROM location_samples
 
