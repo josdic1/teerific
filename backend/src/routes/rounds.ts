@@ -188,6 +188,31 @@ roundsRouter.post(
       const outcome =
         await withTransaction(
           async (client) => {
+            const detection =
+              await detectCourseAtPoint(
+                {
+                  latitude:
+                    startInput.location.latitude,
+
+                  longitude:
+                    startInput.location.longitude
+                },
+                client
+              );
+
+            if (
+              detection.status !==
+                "matched" ||
+              !detection.course
+            ) {
+              return {
+                type:
+                  "course_detection_failed",
+
+                detection
+              } as const;
+            }
+
             let courseId:
               string;
 
@@ -196,34 +221,21 @@ roundsRouter.post(
                 .courseDetectionMethod ===
               "automatic"
             ) {
-              const detection =
-                await detectCourseAtPoint(
-                  {
-                    latitude:
-                      startInput.latitude,
-
-                    longitude:
-                      startInput.longitude
-                  },
-                  client
-                );
-
+              courseId =
+                detection.course.id;
+            } else {
               if (
-                detection.status !==
-                  "matched" ||
-                !detection.course
+                detection.course.id !==
+                startInput.courseId
               ) {
                 return {
                   type:
-                    "course_detection_failed",
+                    "course_location_mismatch",
 
                   detection
                 } as const;
               }
 
-              courseId =
-                detection.course.id;
-            } else {
               courseId =
                 startInput.courseId;
             }
@@ -245,6 +257,40 @@ roundsRouter.post(
                 type:
                   "course_not_found"
               } as const;
+            }
+
+            const locationOutcome =
+              await recordLocationSample(
+                created.id,
+                currentUser.id,
+                startInput.location,
+                client
+              );
+
+            if (
+              locationOutcome.type !==
+              "recorded"
+            ) {
+              const error =
+                new Error(
+                  "ROUND_START_LOCATION_REJECTED"
+                );
+
+              Object.assign(
+                error,
+                {
+                  code:
+                    "ROUND_START_LOCATION_REJECTED",
+
+                  reason:
+                    locationOutcome.type ===
+                      "stale"
+                      ? locationOutcome.reason
+                      : locationOutcome.type
+                }
+              );
+
+              throw error;
             }
 
             await audit(
@@ -295,6 +341,21 @@ roundsRouter.post(
 
       if (
         outcome.type ===
+        "course_location_mismatch"
+      ) {
+        response.status(409).json({
+          error:
+            "COURSE_LOCATION_MISMATCH",
+
+          detection:
+            outcome.detection
+        });
+
+        return;
+      }
+
+      if (
+        outcome.type ===
         "course_not_found"
       ) {
         response.status(404).json({
@@ -310,6 +371,26 @@ roundsRouter.post(
           outcome.round
       });
     } catch (error) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        error.code ===
+          "ROUND_START_LOCATION_REJECTED"
+      ) {
+        response.status(409).json({
+          error:
+            "ROUND_START_LOCATION_REJECTED",
+
+          reason:
+            "reason" in error
+              ? error.reason
+              : null
+        });
+
+        return;
+      }
+
       if (
         pgCode(error) ===
         "23505"

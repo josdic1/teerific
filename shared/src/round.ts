@@ -7,6 +7,9 @@ import {
   LatitudeSchema,
   LongitudeSchema
 } from "./geo.js";
+import {
+  LocationUpdateInputSchema
+} from "./location.js";
 
 export const CourseDetectionMethodSchema =
   z.enum([
@@ -149,7 +152,10 @@ const ManualStartRoundInputSchema =
       z.literal("manual"),
 
     courseId:
-      IdSchema
+      IdSchema,
+
+    location:
+      LocationUpdateInputSchema
   })
   .strict();
 
@@ -158,11 +164,8 @@ const AutomaticStartRoundInputSchema =
     courseDetectionMethod:
       z.literal("automatic"),
 
-    latitude:
-      LatitudeSchema,
-
-    longitude:
-      LongitudeSchema
+    location:
+      LocationUpdateInputSchema
   })
   .strict();
 

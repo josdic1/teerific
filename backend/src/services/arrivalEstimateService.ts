@@ -14,6 +14,98 @@ import type {
   RoutingProvider
 } from "../routing/routingProvider.js";
 
+type CachedRoute =
+  Awaited<
+    ReturnType<
+      RoutingProvider["computeDrivingRoute"]
+    >
+  >;
+
+const ROUTE_CACHE_MS =
+  5 * 60 * 1000;
+
+const routeCache =
+  new Map<
+    string,
+    {
+      expiresAt: number;
+      route: Promise<CachedRoute>;
+    }
+  >();
+
+function routeCacheKey(
+  origin: ResolvedArrivalOrigin,
+  target: ResolvedArrivalTarget
+): string {
+  return [
+    origin.latitude.toFixed(5),
+    origin.longitude.toFixed(5),
+    target.latitude.toFixed(5),
+    target.longitude.toFixed(5)
+  ].join(":");
+}
+
+async function computeArrivalRoute(
+  routingProvider: RoutingProvider,
+  origin: ResolvedArrivalOrigin,
+  target: ResolvedArrivalTarget,
+  departureTime: Date
+): Promise<CachedRoute> {
+  const input = {
+    origin: {
+      latitude: origin.latitude,
+      longitude: origin.longitude
+    },
+    destination: {
+      latitude: target.latitude,
+      longitude: target.longitude
+    },
+    departureTime
+  };
+
+  if (
+    routingProvider !==
+    googleRoutesProvider
+  ) {
+    return routingProvider
+      .computeDrivingRoute(input);
+  }
+
+  const key =
+    routeCacheKey(
+      origin,
+      target
+    );
+
+  const now = Date.now();
+  const cached =
+    routeCache.get(key);
+
+  if (
+    cached &&
+    cached.expiresAt > now
+  ) {
+    return cached.route;
+  }
+
+  const route =
+    routingProvider
+      .computeDrivingRoute(input);
+
+  routeCache.set(key, {
+    expiresAt:
+      now + ROUTE_CACHE_MS,
+    route
+  });
+
+  try {
+    return await route;
+  } catch (error) {
+    routeCache.delete(key);
+    throw error;
+  }
+}
+
 export async function estimateArrival(
   input: {
     state: LiveGolferState;
@@ -88,27 +180,12 @@ export async function estimateArrival(
 
   try {
     const route =
-      await routingProvider
-        .computeDrivingRoute({
-          origin: {
-            latitude:
-              input.origin.latitude,
-
-            longitude:
-              input.origin.longitude
-          },
-
-          destination: {
-            latitude:
-              input.target.latitude,
-
-            longitude:
-              input.target.longitude
-          },
-
-          departureTime:
-            finishAt
-        });
+      await computeArrivalRoute(
+        routingProvider,
+        input.origin,
+        input.target,
+        finishAt
+      );
 
     const arrivalAt =
       new Date(

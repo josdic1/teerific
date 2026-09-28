@@ -329,8 +329,42 @@ export default function GolferStatusPage() {
             null;
 
           if (
-            nextFinish !==
+            nextFinish ===
             currentFinish
+          ) {
+            return;
+          }
+
+          const nextTime =
+            nextFinish
+              ? Date.parse(
+                  nextFinish,
+                )
+              : null;
+
+          const currentTime =
+            currentFinish
+              ? Date.parse(
+                  currentFinish,
+                )
+              : null;
+
+          const materiallyChanged =
+            nextTime === null ||
+            currentTime === null ||
+            !Number.isFinite(
+              nextTime,
+            ) ||
+            !Number.isFinite(
+              currentTime,
+            ) ||
+            Math.abs(
+              nextTime -
+              currentTime,
+            ) >= 60_000;
+
+          if (
+            materiallyChanged
           ) {
             void refreshArrival();
           }

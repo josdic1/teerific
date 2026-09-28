@@ -1083,6 +1083,8 @@ export default function GolferRoundPage() {
 
                 courseId:
                   confirmedCourseId,
+
+                location,
               }),
           },
         );
@@ -1108,11 +1110,6 @@ export default function GolferRoundPage() {
 
       setRound(
         createdRound,
-      );
-
-      await postLocationSample(
-        createdRound.id,
-        location,
       );
 
       const nextState =

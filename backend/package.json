@@ -7,7 +7,7 @@
     "dev": "NODE_OPTIONS=--conditions=development tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "NODE_OPTIONS=--conditions=development node --import tsx --test src/services/locationSamplePolicy.test.ts src/repositories/locationRepository.test.ts",
+    "test": "NODE_OPTIONS=--conditions=development node --import tsx --test src/services/locationSamplePolicy.test.ts src/services/arrivalEstimateService.test.ts src/routes/roundStartContract.test.ts src/repositories/locationRepository.test.ts",
     "start": "node dist/server.js",
     "clean": "rm -rf dist",
     "sessions:cleanup": "tsx src/scripts/cleanupSessions.ts"
